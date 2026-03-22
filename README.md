@@ -14,8 +14,8 @@ Make sure you have the following installed before starting:
 ## 1. Clone the repo
 
 ```bash
-git clone <your-repo-url>
-cd meal-planner
+git clone https://github.com/shrutielangovan/meal-plan-project.git
+cd meal-plan-project
 ```
 
 ---
