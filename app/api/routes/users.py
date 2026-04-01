@@ -9,6 +9,10 @@ from uuid import UUID
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter_by(email=user_in.email).first()
@@ -31,6 +35,14 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     return user
+
+@router.post("/login")
+def login(email: str, password: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not verify_password(password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"user_id": user.id, "name": user.name}
+
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: UUID, db: Session = Depends(get_db)):
