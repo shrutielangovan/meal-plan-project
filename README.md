@@ -216,3 +216,127 @@ meal-planner/
 **`meal_slot`** must be one of: `breakfast` | `lunch` | `dinner` | `snack`
 
 **`day_of_week`** must be between `0` (Monday) and `6` (Sunday)
+
+
+# NutriSync — Frontend
+
+The Next.js frontend for NutriSync, an AI-powered personalized meal planner.
+
+---
+
+## Prerequisites
+
+Make sure you have the following installed:
+
+- Node.js 18+
+- npm
+
+---
+
+## Getting Started
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/shrutielangovan/meal-plan-project.git
+cd meal-plan-project/nutrisync 
+```
+
+### 2. Install dependencies
+```bash
+npm install
+```
+
+### 3. Make sure the backend is running
+
+The frontend talks to the FastAPI backend at `http://localhost:8000`.
+Follow the backend README to get it running before starting the frontend.
+
+Make sure your backend has CORS enabled for `http://localhost:3000`.
+
+### 4. Run the development server
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Project Structure
+```
+src/
+  app/
+    page.tsx                  # Home page (session aware)
+    layout.tsx                # Root layout with Navbar
+    loading.tsx               # Global loading spinner
+    about/page.tsx            # About Us page
+    login/page.tsx            # Login form
+    profile/page.tsx          # User Profile
+    signup/page.tsx           # Signup form
+    dashboard/
+      page.tsx                # Dashboard with feature cards
+      meal-plan/page.tsx      # Meal plan (coming soon)
+      pantry/page.tsx         # Pantry manager (coming soon)
+      nutrition/page.tsx      # Nutrition tracker (coming soon)
+      chat/page.tsx           # AI chat agent (coming soon)
+  components/ui/
+    Navbar.tsx                # Session-aware navbar
+```
+
+---
+
+## Tech Stack
+
+| Tool | Purpose |
+|------|---------|
+| Next.js 15 (App Router) | Framework |
+| React 19 | UI library |
+| Tailwind CSS | Styling |
+| shadcn/ui | Component library |
+| Recharts | Nutrition charts (coming soon) |
+
+---
+
+## Key Features Built
+
+- Session-aware Navbar (shows login/signup or username/logout)
+- Guest vs logged-in experience on Dashboard
+- Freemium model — guests get limited access, full access on login
+- Password validation on signup (uppercase, number, special character)
+- Auto-redirect to login for protected pages
+
+---
+
+## Session Management
+
+User session is stored in `localStorage` after login:
+```
+user_id   → used for all API calls
+user_name → displayed in navbar and dashboard
+```
+
+To log out, the session is cleared and the user is redirected to home.
+
+---
+
+## Backend API
+
+All API calls point to `http://localhost:8000`. Key endpoints used:
+
+| Action | Endpoint |
+|--------|----------|
+| Register | `POST /api/users/register` |
+| Login | `POST /api/users/login` |
+| Get Preferences | `GET /api/users/{user_id}/preferences` |
+| Update Preferences | `PATCH /api/users/{user_id}/preferences` |
+
+Full backend docs available at `http://localhost:8000/docs` when the server is running.
+
+---
+
+## Notes for Teammates
+
+- Always run `docker start meal_planner_db` before starting the backend
+- Backend must be running on port `8000` before starting the frontend
+- If you see a CORS error, check that the backend has `http://localhost:3000` in its allowed origins
+- If you get a `.next` cache error, run `rm -rf .next && npm install && npm run dev`
