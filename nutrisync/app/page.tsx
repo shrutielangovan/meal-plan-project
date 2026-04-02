@@ -1,64 +1,63 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function Home() {
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const name = localStorage.getItem("user_name");
+    setUserName(name);
+
+    const handleAuthChange = () => {
+      setUserName(localStorage.getItem("user_name"));
+    };
+
+    window.addEventListener("auth-change", handleAuthChange);
+    return () => window.removeEventListener("auth-change", handleAuthChange);
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div>
+      <main className="flex flex-col items-center justify-center min-h-screen px-4">
+        {userName ? (
+          <>
+            <p className="text-lg text-purple-600 font-medium mb-2">
+              👋 Welcome back, {userName}!
+            </p>
+            <h1 className="text-5xl font-bold text-center">
+              Ready to <span style={{ color: '#6D4298' }}>sync</span> today?
+            </h1>
+            <p className="mt-4 text-xl text-gray-600 text-center max-w-xl">
+              Jump back into your meal plan, check your grocery list, or chat with your nutrition assistant.
+            </p>
+            <div className="mt-8 flex gap-4">
+              <Link href="/dashboard" className="px-6 py-3 bg-[#6D4298] text-white rounded-md hover:bg-purple-800 transition">
+                Go to Dashboard
+              </Link>
+              <Link href="/chat" className="px-6 py-3 border border-gray-300 rounded-md hover:bg-gray-100 transition">
+                Chat with Agent
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="text-5xl font-bold text-center">
+              Welcome to <span style={{ color: '#6D4298' }}>NutriSync</span>
+            </h1>
+            <p className="mt-4 text-xl text-gray-600 text-center max-w-xl">
+              Your personalized nutrition assistant. Sync your meals, track your macros, and achieve your health goals with ease.
+            </p>
+            <div className="mt-8 flex gap-4">
+              <Link href="/signup" className="px-6 py-3 bg-[#6D4298] text-white rounded-md hover:bg-gray-900 transition">
+                Get Started
+              </Link>
+              <Link href="/about" className="px-6 py-3 border border-gray-300 rounded-md hover:bg-gray-100 transition">
+                Learn More
+              </Link>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
