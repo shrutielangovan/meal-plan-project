@@ -9,15 +9,22 @@ const Navbar = () => {
   const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check localStorage on mount
     const name = localStorage.getItem("user_name");
     setUserName(name);
+
+    const handleAuthChange = () => {
+      setUserName(localStorage.getItem("user_name"));
+    };
+
+    window.addEventListener("auth-change", handleAuthChange);
+    return () => window.removeEventListener("auth-change", handleAuthChange);
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("user_id");
     localStorage.removeItem("user_name");
     setUserName(null);
+    window.dispatchEvent(new Event("auth-change"));
     router.push("/");
   };
 
@@ -48,13 +55,11 @@ const Navbar = () => {
       {/* Right Side: Auth Buttons OR Profile */}
       <div className="flex items-center gap-3">
         {userName ? (
-          // Logged in state
           <>
             <Link
               href="/profile"
               className="flex items-center gap-2 px-4 py-2 rounded-md hover:bg-white/10 transition"
             >
-              {/* Avatar circle with first letter of name */}
               <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-sm font-semibold">
                 {userName.charAt(0).toUpperCase()}
               </div>
@@ -68,7 +73,6 @@ const Navbar = () => {
             </button>
           </>
         ) : (
-          // Logged out state
           <>
             <Link
               href="/login"
