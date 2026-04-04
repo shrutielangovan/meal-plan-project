@@ -45,8 +45,8 @@ const getCards = (isLoggedIn: boolean, guestMealCount: number, guestChatCount: n
     description: "Ask your AI nutrition assistant anything.",
     icon: "🤖",
     href: "/dashboard/chat",
-    color: "bg-orange-50 border-orange-200 hover:border-orange-400",
-    iconBg: "bg-orange-100",
+    color: "bg-blue-50 border-blue-200 hover:border-blue-400",
+    iconBg: "bg-blue-100",
     locked: false,
     guestLimit: 3,
     guestUsed: guestChatCount,
@@ -97,10 +97,7 @@ export default function Dashboard() {
           {isLoggedIn ? (
             <>
               <p className="text-xl text-purple-600 font-medium mb-1">👋 Hey, {userName}!</p>
-              <h1 className="text-4xl font-bold text-gray-900">
-                Your <span className="text-purple-700">Dashboard</span>
-              </h1>
-              <p className="text-lg text-gray-500 mt-2">What would you like to do today?</p>
+              <p className="text-lg text-black-500 mt-2">What would you like to do today?</p>
             </>
           ) : (
             <>

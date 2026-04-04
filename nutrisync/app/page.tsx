@@ -35,7 +35,7 @@ export default function Home() {
               <Link href="/dashboard" className="px-6 py-3 bg-[#6D4298] text-white rounded-md hover:bg-purple-800 transition">
                 Go to Dashboard
               </Link>
-              <Link href="/chat" className="px-6 py-3 border border-gray-300 rounded-md hover:bg-gray-100 transition">
+              <Link href="/dashboard/chat" className="px-6 py-3 border border-gray-300 rounded-md hover:bg-gray-100 transition">
                 Chat with Agent
               </Link>
             </div>
