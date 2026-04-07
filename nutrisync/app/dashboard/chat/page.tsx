@@ -15,12 +15,7 @@ type Session = {
 };
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Welcome back! I'm ready to help you sync your nutrition. What's on the menu today?",
-    },
-  ]);
+  const [userName, setUserName] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [guestCount, setGuestCount] = useState(0);
@@ -35,21 +30,29 @@ export default function ChatPage() {
 
   const GUEST_LIMIT = 3;
 
+  const [messages, setMessages] = useState<Message[]>([]); // Start empty
+
   useEffect(() => {
     const id = localStorage.getItem("user_id");
     const count = parseInt(localStorage.getItem("guest_chat_count") || "0");
+    const name = localStorage.getItem("user_name");
+    
     setIsLoggedIn(!!id);
     setUserId(id);
     setGuestCount(count);
     setMounted(true);
+    setUserName(name);
 
-    // Fetch past sessions if logged in
+    // Set welcome message now that we have the name
+    setMessages([
+      {
+        role: "assistant",
+        content: `Welcome back ${name ?? "there"}! I'm ready to help you sync your nutrition. What's on the menu today?`,
+      },
+    ]);
+
     if (id) fetchSessions(id);
   }, []);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   const fetchSessions = async (uid: string) => {
     try {
@@ -86,7 +89,7 @@ export default function ChatPage() {
   const startNewChat = () => {
     setMessages([{
       role: "assistant",
-      content: "Welcome back! I'm ready to help you sync your nutrition. What's on the menu today?",
+      content: `Welcome back ${userName}! I'm ready to help you sync your nutrition. What's on the menu today?`,
     }]);
     setSessionId(null);
   };

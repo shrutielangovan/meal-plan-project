@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 type PantryItem = {
@@ -20,6 +20,12 @@ export default function PantryPage() {
   const [editItem, setEditItem] = useState<PantryItem | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanPreview, setScanPreview] = useState<string | null>(null);
+  const [scannedItems, setScannedItems] = useState<any[]>([]);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     ingredient_name: "",
     quantity: "",
@@ -112,6 +118,19 @@ export default function PantryPage() {
     }
   };
 
+  const handleDelete = async (item: PantryItem) => {
+    try {
+      await fetch(`http://localhost:8000/api/pantry/${userId}/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: 0 }),
+      });
+      fetchPantry(userId!);
+    } catch (err) {
+      setError("Failed to delete item");
+    }
+  };
+
   const openEdit = (item: PantryItem) => {
     setEditItem(item);
     setForm({
@@ -121,6 +140,9 @@ export default function PantryPage() {
       expires_at: item.expires_at?.split("T")[0] || "",
     });
     setShowForm(true);
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   };
 
   const closeForm = () => {
@@ -130,10 +152,67 @@ export default function PantryPage() {
     setError("");
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanning(true);
+    setShowScanModal(true);
+    setScanPreview(URL.createObjectURL(file));
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(",")[1];
+      try {
+        const res = await fetch("/api/scan-receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
+        });
+        const data = await res.json();
+        setScannedItems(data.items || []);
+      } catch (err) {
+        setError("Failed to scan receipt");
+      } finally {
+        setScanning(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddScannedItems = async () => {
+    if (!userId) return;
+    setAdding(true);
+    try {
+      await Promise.all(
+        scannedItems.map((item) =>
+          fetch(`http://localhost:8000/api/pantry/${userId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ingredient_name: item.ingredient_name,
+              quantity: item.quantity || null,
+              unit: item.unit || null,
+              expires_at: null,
+            }),
+          })
+        )
+      );
+      setShowScanModal(false);
+      setScannedItems([]);
+      setScanPreview(null);
+      fetchPantry(userId);
+    } catch (err) {
+      setError("Failed to add scanned items");
+    } finally {
+      setAdding(false);
+    }
+  };
+
   const isExpiringSoon = (expires_at: string | null) => {
     if (!expires_at) return false;
     const diff = new Date(expires_at).getTime() - Date.now();
-    return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000; // within 3 days
+    return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000;
   };
 
   const isExpired = (expires_at: string | null) => {
@@ -153,27 +232,40 @@ export default function PantryPage() {
             </h1>
             <p className="text-gray-500 mt-1">Track what ingredients you have at home.</p>
           </div>
-          <button
-            onClick={() => { setShowForm(true); setEditItem(null); }}
-            className="bg-amber-500 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-amber-600 transition"
-          >
-            + Add Item
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="border border-amber-400 text-amber-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-amber-50 transition"
+            >
+              📷 Scan Receipt
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <button
+              onClick={() => { setShowForm(true); setEditItem(null); }}
+              className="bg-amber-500 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-amber-600 transition"
+            >
+              + Add Item
+            </button>
+          </div>
         </div>
 
         {/* Add/Edit Form */}
         {showForm && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm mb-8 border border-amber-100">
+          <div ref={formRef} className="bg-white rounded-2xl p-6 shadow-sm mb-8 border border-amber-100">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               {editItem ? `Edit — ${editItem.ingredient_name}` : "Add New Item"}
             </h2>
-
             {error && (
               <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-4">
                 {error}
               </div>
             )}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input
                 name="ingredient_name"
@@ -206,7 +298,6 @@ export default function PantryPage() {
                 className="border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-amber-400"
               />
             </div>
-
             <div className="flex gap-3 mt-4">
               <button
                 onClick={editItem ? handleUpdate : handleAdd}
@@ -234,7 +325,7 @@ export default function PantryPage() {
           <div className="text-center py-20 text-gray-400">
             <p className="text-4xl mb-3">🏠</p>
             <p className="text-lg font-medium">Your pantry is empty</p>
-            <p className="text-sm">Add some ingredients to get started!</p>
+            <p className="text-sm">Add items manually or scan a grocery receipt!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -253,20 +344,26 @@ export default function PantryPage() {
                   <h3 className="font-semibold text-gray-800 capitalize">
                     {item.ingredient_name}
                   </h3>
-                  <button
-                    onClick={() => openEdit(item)}
-                    className="text-xs text-amber-500 hover:text-amber-700 font-medium"
-                  >
-                    Edit
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openEdit(item)}
+                      className="text-xs text-amber-500 hover:text-amber-700 font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item)}
+                      className="text-xs text-red-400 hover:text-red-600 font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-
                 {item.quantity && (
                   <p className="text-sm text-gray-500">
                     {item.quantity} {item.unit || ""}
                   </p>
                 )}
-
                 {item.expires_at && (
                   <p className={`text-xs mt-2 font-medium ${
                     isExpired(item.expires_at)
@@ -287,6 +384,79 @@ export default function PantryPage() {
           </div>
         )}
       </div>
+
+      {/* Receipt Scan Modal */}
+      {showScanModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-xl">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">📷 Scan Grocery Receipt</h2>
+
+            {scanPreview && (
+              <img
+                src={scanPreview}
+                alt="Receipt preview"
+                className="w-full max-h-48 object-contain rounded-xl mb-4 border border-gray-100"
+              />
+            )}
+
+            {scanning ? (
+              <div className="flex flex-col items-center py-6 gap-3">
+                <div className="w-8 h-8 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+                <p className="text-gray-500 text-sm">Reading your receipt...</p>
+              </div>
+            ) : scannedItems.length > 0 ? (
+              <>
+                <p className="text-sm text-gray-500 mb-3">
+                  Found {scannedItems.length} items — review and confirm:
+                </p>
+                <div className="max-h-48 overflow-y-auto flex flex-col gap-2 mb-4">
+                  {scannedItems.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between bg-amber-50 rounded-lg px-4 py-2">
+                      <span className="text-sm font-medium text-gray-800 capitalize">
+                        {item.ingredient_name}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {item.quantity ? `${item.quantity} ${item.unit || ""}` : "—"}
+                      </span>
+                      <button
+                        onClick={() => setScannedItems(scannedItems.filter((_, idx) => idx !== i))}
+                        className="text-red-400 text-xs hover:text-red-600 ml-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAddScannedItems}
+                    disabled={adding}
+                    className="bg-amber-500 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 transition disabled:opacity-50 flex-1"
+                  >
+                    {adding ? "Adding..." : `Add ${scannedItems.length} Items to Pantry`}
+                  </button>
+                  <button
+                    onClick={() => { setShowScanModal(false); setScannedItems([]); setScanPreview(null); }}
+                    className="border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4 text-gray-400 text-sm">
+                No items found. Try a clearer image or PDF.
+                <button
+                  onClick={() => { setShowScanModal(false); setScanPreview(null); }}
+                  className="block mx-auto mt-3 text-amber-500 hover:text-amber-700 font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
