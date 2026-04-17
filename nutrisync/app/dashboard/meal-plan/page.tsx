@@ -1,4 +1,5 @@
 "use client";
+import MealCalendar from "./MealCalendar";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import RecipePanel from "./RecipePanel";
@@ -617,37 +618,7 @@ export default function MealPlanPage() {
         {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-6">{error}</div>}
 
         {/* Calendar strip */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm mb-8">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Last 7 Days</p>
-          <div className="flex gap-2">
-            {calendarDays.map((date, i) => {
-              const mealsOnDay = getMealsLoggedOnDay(date);
-              const hasLog = mealsOnDay.length > 0;
-              return (
-                <div
-                  key={i}
-                  className={`flex-1 flex flex-col items-center py-2 px-1 rounded-xl transition ${
-                    isToday(date)
-                      ? "bg-purple-700 text-white"
-                      : hasLog
-                      ? "bg-purple-50 text-purple-700"
-                      : "bg-gray-50 text-gray-400"
-                  }`}
-                >
-                  <p className="text-xs font-medium mb-1">{DAYS[date.getDay() === 0 ? 6 : date.getDay() - 1]}</p>
-                  <p className="text-sm font-bold">{date.getDate()}</p>
-                  {hasLog && (
-                    <div className="flex gap-0.5 mt-1">
-                      {mealsOnDay.slice(0, 3).map((_, idx) => (
-                        <div key={idx} className={`w-1 h-1 rounded-full ${isToday(date) ? "bg-white" : "bg-purple-400"}`} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <MealCalendar loggedMeals={loggedMeals} />
 
         {/* Meal slots */}
         {generating ? (
