@@ -260,6 +260,17 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### 5.Set up environment variables
+
+Create .env.local under nutrisync folder to access your api keys for Agent specific task
+
+```bash
+GEMINI_API_KEY=your-key-here
+SPOONACULAR_API_KEY=your-key-here
+USDA_API_KEY=your-key-here
+
+```
+
 ---
 
 ## Project Structure
