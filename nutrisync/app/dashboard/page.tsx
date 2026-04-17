@@ -6,15 +6,17 @@ import { useRouter } from "next/navigation";
 const getCards = (isLoggedIn: boolean, guestMealCount: number, guestChatCount: number) => [
   {
     title: "Meal Plan",
-    description: "View and manage your personalized weekly meal plan.",
+    description: isLoggedIn 
+      ? "View and manage your personalized daily meal plan."
+      : "Explore sample meal plans — vegan and non-veg options.",
     icon: "🗓️",
     href: "/dashboard/meal-plan",
     color: "bg-purple-50 border-purple-200 hover:border-purple-400",
     iconBg: "bg-purple-100",
     locked: false,
-    guestLimit: 2,
-    guestUsed: guestMealCount,
-    showLimit: !isLoggedIn,
+    guestLimit: undefined,  // 👈 remove limit
+    guestUsed: undefined,   // 👈 remove usage
+    showLimit: false,       // 👈 never show counter
   },
   {
     title: "Pantry",
