@@ -4,9 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import RecipePanel from "./RecipePanel";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MEAL_SLOTS_OPTIONS = ["breakfast", "lunch", "dinner", "snack"];
-
 const DIETARY_OPTIONS = ["vegetarian", "vegan", "gluten-free", "dairy-free", "keto", "halal", "kosher", "nut-free"];
 const HEALTH_GOALS_OPTIONS = ["weight loss", "muscle gain", "maintain weight", "heart health", "high protein", "low carb", "high fiber"];
 const DISLIKES_OPTIONS = ["mushrooms", "onions", "garlic", "seafood", "spicy food", "cilantro", "olives", "tofu"];
@@ -41,9 +39,11 @@ type LoggedMeal = {
   meal_slot: string | null;
   logged_at: string;
   calories: number | null;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
 };
 
-// Guest demo data
 const GUEST_PLANS = {
   vegan: {
     label: "🌱 Vegan Plan",
@@ -105,30 +105,28 @@ export default function MealPlanPage() {
   const [showPrefsPanel, setShowPrefsPanel] = useState(false);
   const [guestTab, setGuestTab] = useState<"vegan" | "nonveg">("vegan");
   const [activeGuestRecipe, setActiveGuestRecipe] = useState<any | null>(null);
-  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
 
-  // Calendar state
   const today = new Date();
-  const [calendarDays, setCalendarDays] = useState<Date[]>([]);
 
   useEffect(() => {
-    // Build last 7 days for calendar
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      return d;
-    });
-    setCalendarDays(days);
-
     const id = localStorage.getItem("user_id");
     setIsLoggedIn(!!id);
     setUserId(id);
 
-    // Restore selected meals for today
+    // Check if it's a new day and clear stale data
+    const lastActiveDate = localStorage.getItem("last_active_date");
+    const todayStr = new Date().toDateString();
+    if (lastActiveDate && lastActiveDate !== todayStr) {
+      localStorage.removeItem("selected_meals");
+      localStorage.removeItem("meal_suggestions");
+    }
+    localStorage.setItem("last_active_date", todayStr);
+
+    // Restore today's selections
     const savedSelections = localStorage.getItem("selected_meals");
     if (savedSelections) {
       const parsed = JSON.parse(savedSelections);
-      if (parsed.date === new Date().toDateString() && parsed.userId === id) {
+      if (parsed.date === todayStr && parsed.userId === id) {
         setSelectedMeals(parsed.meals);
       }
     }
@@ -136,7 +134,7 @@ export default function MealPlanPage() {
     if (id) {
       initialize(id);
     } else {
-      setStep("plan"); // guests go straight to demo plan
+      setStep("plan");
     }
   }, []);
 
@@ -163,17 +161,10 @@ export default function MealPlanPage() {
       const logData = await logRes.json();
       setLoggedMeals(logData || []);
 
-      // Fetch existing plans
-      const planRes = await fetch(`http://localhost:8000/api/meal-plans/${uid}`);
-      const plans = await planRes.json();
-
-      if (plans && plans.length > 0) {
-        setCurrentPlanId(plans[0].id);
-        await fetchRecipesAndGenerate(uid, hasPrefs ? prefData : preferences, plans[0]);
-      } else if (!hasPrefs) {
+      if (!hasPrefs) {
         setStep("preferences");
       } else {
-        await fetchRecipesAndGenerate(uid, prefData, null);
+        await fetchRecipesAndGenerate(uid, prefData);
       }
     } catch (err) {
       setError("Failed to load data");
@@ -181,30 +172,26 @@ export default function MealPlanPage() {
     }
   };
 
-  const fetchRecipesAndGenerate = async (uid: string, prefs: any, existingPlan: any) => {
+  const fetchRecipesAndGenerate = async (uid: string, prefs: any) => {
     try {
       const recipeRes = await fetch(`http://localhost:8000/api/recipes/`);
       const allRecipes: Recipe[] = await recipeRes.json();
       setRecipes(allRecipes);
-  
+
       // Check localStorage for today's suggestions
       const cached = localStorage.getItem("meal_suggestions");
       if (cached) {
         const parsed = JSON.parse(cached);
         const isToday = parsed.generatedAt === new Date().toDateString();
         const isSameUser = parsed.userId === uid;
-  
         if (isToday && isSameUser && Object.keys(parsed.suggestions).length > 0) {
-          console.log("Using cached suggestions ✅");
           setSuggestions(parsed.suggestions);
           setStep("plan");
           return;
         }
       }
-  
-      // No cache or stale — generate fresh
+
       await generateSuggestions(uid, prefs, allRecipes);
-  
     } catch (err) {
       setError("Failed to load recipes");
       setStep("plan");
@@ -229,6 +216,7 @@ export default function MealPlanPage() {
             title: r.title,
             meal_type: r.meal_type,
             calories: r.calories,
+            tags: r.tags,
           })),
           mealSlots: prefs.meal_slots || ["breakfast", "lunch", "dinner"],
         }),
@@ -237,10 +225,9 @@ export default function MealPlanPage() {
       const data = await res.json();
       setSuggestions(data.suggestions || {});
 
-      // Save to localStorage with timestamp
       localStorage.setItem("meal_suggestions", JSON.stringify({
         suggestions: data.suggestions || {},
-        generatedAt: new Date().toDateString(), // store today's date
+        generatedAt: new Date().toDateString(),
         userId: uid,
       }));
 
@@ -267,6 +254,7 @@ export default function MealPlanPage() {
         }),
       });
       setShowPrefsPanel(false);
+      localStorage.removeItem("meal_suggestions");
       await generateSuggestions(userId, preferences, recipes);
     } catch (err) {
       setError("Failed to save preferences");
@@ -294,21 +282,68 @@ export default function MealPlanPage() {
   };
 
   const selectMeal = async (slot: string, recipeId: string) => {
-    setSelectedMeals((prev) => ({ ...prev, [slot]: recipeId }));
+    const recipe = recipes.find((r) => r.id === recipeId);
+    console.log("Selected recipe ingredients:", recipe?.ingredients);
+    if (!recipe || !userId) return;
 
-    const updatedSelections = { ...selectedMeals, [slot]: recipeId };
-    setSelectedMeals(updatedSelections);
-    localStorage.setItem("selected_meals", JSON.stringify({
-      meals: updatedSelections,
-      date: new Date().toDateString(),
-      userId,
-    }));
+    const previousRecipeId = selectedMeals[slot];
+    if (previousRecipeId === recipeId) {
+      setActiveRecipe(null);
+      return;
+    }
 
-    // Log the meal
-    if (userId) {
-      const recipe = recipes.find((r) => r.id === recipeId);
-      if (!recipe || !userId) return;
-      try {
+    try {
+      const pantryRes = await fetch(`http://localhost:8000/api/pantry/${userId}`);
+      const pantryItems = await pantryRes.json();
+
+      // Restore previous recipe ingredients
+      if (previousRecipeId) {
+        const previousRecipe = recipes.find((r) => r.id === previousRecipeId);
+        if (previousRecipe) {
+          for (const ingredient of previousRecipe.ingredients || []) {
+            const pantryItem = pantryItems.find(
+              (p: any) => p.ingredient_name.toLowerCase() === ingredient.ingredient_name.toLowerCase()
+            );
+            if (pantryItem && ingredient.quantity !== null) {
+              const restoredQty = (pantryItem.quantity || 0) + (ingredient.quantity || 0);
+              await fetch(`http://localhost:8000/api/pantry/${userId}/${pantryItem.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ quantity: restoredQty }),
+              });
+            }
+          }
+          const refreshedRes = await fetch(`http://localhost:8000/api/pantry/${userId}`);
+          pantryItems.splice(0, pantryItems.length, ...(await refreshedRes.json()));
+        }
+      }
+
+      // Deduct new recipe ingredients
+      for (const ingredient of recipe.ingredients || []) {
+        const pantryItem = pantryItems.find(
+          (p: any) => p.ingredient_name.toLowerCase() === ingredient.ingredient_name.toLowerCase()
+        );
+        if (pantryItem && pantryItem.quantity !== null && ingredient.quantity !== null) {
+          const newQty = Math.max(0, pantryItem.quantity - (ingredient.quantity || 0));
+          await fetch(`http://localhost:8000/api/pantry/${userId}/${pantryItem.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ quantity: newQty }),
+          });
+        }
+      }
+
+      // Update selections
+      const updatedSelections = { ...selectedMeals, [slot]: recipeId };
+      setSelectedMeals(updatedSelections);
+      localStorage.setItem("selected_meals", JSON.stringify({
+        meals: updatedSelections,
+        date: new Date().toDateString(),
+        userId,
+      }));
+
+      // Only log first selection per slot
+      if (!previousRecipeId) {
         await fetch(`http://localhost:8000/api/meal-plans/${userId}/log`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -322,42 +357,17 @@ export default function MealPlanPage() {
             source: "meal_plan",
           }),
         });
-
-        // Fetch current pantry
-        const pantryRes = await fetch(`http://localhost:8000/api/pantry/${userId}`);
-        const pantryItems = await pantryRes.json();
-
-        // Deduct ingredients from pantry
-        for (const ingredient of recipe.ingredients || []) {
-          const pantryItem = pantryItems.find(
-            (p: any) =>
-              p.ingredient_name.toLowerCase() === ingredient.ingredient_name.toLowerCase()
-          );
-
-          if (pantryItem && pantryItem.quantity !== null && ingredient.quantity !== null) {
-            const newQty = Math.max(0, pantryItem.quantity - (ingredient.quantity || 0));
-            await fetch(`http://localhost:8000/api/pantry/${userId}/${pantryItem.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ quantity: newQty }),
-            });
-          }
-        }
-
-
-        // Refresh logged meals
         const logRes = await fetch(`http://localhost:8000/api/meal-plans/${userId}/log/history`);
-        const logData = await logRes.json();
-        setLoggedMeals(logData || []);
-      } catch (err) {
-        console.error("Failed to log meal");
+        setLoggedMeals(await logRes.json() || []);
       }
+    } catch (err) {
+      console.error("Failed to update meal or pantry");
     }
+
     setActiveRecipe(null);
   };
 
-  const getRecipeById = (id: string) =>
-    recipes.find((r) => r.id === id) || null;
+  const getRecipeById = (id: string) => recipes.find((r) => r.id === id) || null;
 
   const getSlotEmoji = (slot: string) => {
     if (slot === "breakfast") return "🌅";
@@ -365,15 +375,6 @@ export default function MealPlanPage() {
     if (slot === "dinner") return "🌙";
     return "🍎";
   };
-
-  const getMealsLoggedOnDay = (date: Date) => {
-    return loggedMeals.filter((m) => {
-      const logDate = new Date(m.logged_at);
-      return logDate.toDateString() === date.toDateString();
-    });
-  };
-
-  const isToday = (date: Date) => date.toDateString() === today.toDateString();
 
   // ── LOADING ──
   if (step === "loading") {
@@ -384,7 +385,7 @@ export default function MealPlanPage() {
     );
   }
 
-  // ── PREFERENCES SETUP (first time) ──
+  // ── PREFERENCES SETUP ──
   if (step === "preferences") {
     return (
       <main className="min-h-screen bg-[#F5F2EB] px-6 py-12">
@@ -398,92 +399,66 @@ export default function MealPlanPage() {
 
           {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-6">{error}</div>}
 
-          {/* Meal Slots */}
           <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-1">🍽️ How many meals do you eat per day?</h2>
             <p className="text-gray-400 text-sm mb-4">Select all that apply</p>
             <div className="flex flex-wrap gap-2">
               {MEAL_SLOTS_OPTIONS.map((slot) => (
-                <button
-                  key={slot}
-                  onClick={() => toggleMealSlot(slot)}
+                <button key={slot} onClick={() => toggleMealSlot(slot)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition capitalize ${
-                    preferences.meal_slots.includes(slot)
-                      ? "bg-purple-700 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
+                    preferences.meal_slots.includes(slot) ? "bg-purple-700 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}>
                   {getSlotEmoji(slot)} {slot}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Dietary Restrictions */}
           <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">🥗 Dietary Restrictions</h2>
             <div className="flex flex-wrap gap-2">
               {DIETARY_OPTIONS.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => togglePref("dietary_restrictions", item)}
+                <button key={item} onClick={() => togglePref("dietary_restrictions", item)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                    preferences.dietary_restrictions.includes(item)
-                      ? "bg-purple-700 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
+                    preferences.dietary_restrictions.includes(item) ? "bg-purple-700 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}>
                   {item}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Health Goals */}
           <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">🎯 Health Goals</h2>
             <div className="flex flex-wrap gap-2">
               {HEALTH_GOALS_OPTIONS.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => togglePref("health_goals", item)}
+                <button key={item} onClick={() => togglePref("health_goals", item)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                    preferences.health_goals.includes(item)
-                      ? "bg-green-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
+                    preferences.health_goals.includes(item) ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}>
                   {item}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Dislikes */}
           <div className="bg-white rounded-2xl p-6 shadow-sm mb-8">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">🚫 Ingredients I Dislike</h2>
             <div className="flex flex-wrap gap-2">
               {DISLIKES_OPTIONS.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => togglePref("ingredient_dislikes", item)}
+                <button key={item} onClick={() => togglePref("ingredient_dislikes", item)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                    preferences.ingredient_dislikes.includes(item)
-                      ? "bg-red-500 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
+                    preferences.ingredient_dislikes.includes(item) ? "bg-red-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}>
                   {item}
                 </button>
               ))}
             </div>
           </div>
 
-          <button
-            onClick={savePreferences}
+          <button onClick={savePreferences}
             disabled={saving || generating || preferences.meal_slots.length === 0}
-            className="w-full bg-purple-700 text-white py-3 rounded-xl font-semibold hover:bg-purple-800 transition disabled:opacity-50"
-          >
+            className="w-full bg-purple-700 text-white py-3 rounded-xl font-semibold hover:bg-purple-800 transition disabled:opacity-50">
             {generating ? "Generating your meal plan..." : saving ? "Saving..." : "Generate My Meal Plan →"}
           </button>
         </div>
@@ -504,24 +479,17 @@ export default function MealPlanPage() {
             <p className="text-gray-500">Sign up to get a personalized plan based on your preferences and pantry.</p>
           </div>
 
-          {/* Plan tabs */}
           <div className="flex gap-3 mb-8">
             {(["vegan", "nonveg"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setGuestTab(tab)}
+              <button key={tab} onClick={() => setGuestTab(tab)}
                 className={`px-5 py-2 rounded-xl text-sm font-semibold transition ${
-                  guestTab === tab
-                    ? "bg-purple-700 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
+                  guestTab === tab ? "bg-purple-700 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                }`}>
                 {GUEST_PLANS[tab].label}
               </button>
             ))}
           </div>
 
-          {/* Guest meal slots */}
           {["breakfast", "lunch", "dinner"].map((slot) => (
             <div key={slot} className="mb-8">
               <h2 className="text-lg font-semibold text-gray-700 mb-3 capitalize flex items-center gap-2">
@@ -529,11 +497,8 @@ export default function MealPlanPage() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {(plan as any)[slot].map((recipe: any) => (
-                  <div
-                    key={recipe.id}
-                    onClick={() => setActiveGuestRecipe(recipe)}
-                    className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition border-2 border-transparent hover:border-purple-200"
-                  >
+                  <div key={recipe.id} onClick={() => setActiveGuestRecipe(recipe)}
+                    className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition border-2 border-transparent hover:border-purple-200">
                     <p className="font-semibold text-gray-800 text-sm mb-2">{recipe.title}</p>
                     <div className="flex flex-wrap gap-2 text-xs text-gray-400">
                       {recipe.calories && <span>🔥 {recipe.calories} cal</span>}
@@ -546,7 +511,6 @@ export default function MealPlanPage() {
             </div>
           ))}
 
-          {/* Guest recipe mini modal */}
           {activeGuestRecipe && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
@@ -569,10 +533,8 @@ export default function MealPlanPage() {
                   ))}
                 </div>
                 <p className="text-sm text-gray-500 mb-4">⏱ {activeGuestRecipe.prep_time_mins} mins prep time</p>
-                
                 <a href="/signup"
-                  className="block w-full bg-purple-700 text-white text-center py-2 rounded-xl text-sm font-semibold hover:bg-purple-800 transition"
-                >
+                  className="block w-full bg-purple-700 text-white text-center py-2 rounded-xl text-sm font-semibold hover:bg-purple-800 transition">
                   {"Sign up for your personalized plan →"}
                 </a>
               </div>
@@ -588,7 +550,6 @@ export default function MealPlanPage() {
     <main className="min-h-screen bg-[#F5F2EB] px-6 py-12">
       <div className="max-w-3xl mx-auto">
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">
@@ -599,17 +560,17 @@ export default function MealPlanPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowPrefsPanel(true)}
-              className="border border-purple-200 text-purple-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-purple-50 transition"
-            >
+            <button onClick={() => setShowPrefsPanel(true)}
+              className="border border-purple-200 text-purple-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-purple-50 transition">
               ⚙️ Preferences
             </button>
             <button
-              onClick={() => generateSuggestions(userId!, preferences, recipes)}
+              onClick={() => {
+                localStorage.removeItem("meal_suggestions");
+                generateSuggestions(userId!, preferences, recipes);
+              }}
               disabled={generating}
-              className="bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-purple-800 transition disabled:opacity-50"
-            >
+              className="bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-purple-800 transition disabled:opacity-50">
               {generating ? "..." : "🔄 Refresh"}
             </button>
           </div>
@@ -617,10 +578,8 @@ export default function MealPlanPage() {
 
         {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-6">{error}</div>}
 
-        {/* Calendar strip */}
         <MealCalendar loggedMeals={loggedMeals} />
 
-        {/* Meal slots */}
         {generating ? (
           <div className="flex flex-col items-center py-20 gap-4">
             <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-700 rounded-full animate-spin" />
@@ -640,7 +599,6 @@ export default function MealPlanPage() {
                       </span>
                     )}
                   </h2>
-
                   {slotRecipeIds.length === 0 ? (
                     <div className="bg-white rounded-2xl p-6 text-center text-gray-400 text-sm">
                       No suggestions yet — click Refresh to generate
@@ -652,21 +610,13 @@ export default function MealPlanPage() {
                         if (!recipe) return null;
                         const isSelected = selectedMeals[slot] === recipeId;
                         return (
-                          <div
-                            key={recipeId}
-                            onClick={() => setActiveRecipe(recipe)}
+                          <div key={recipeId} onClick={() => setActiveRecipe(recipe)}
                             className={`bg-white rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition border-2 ${
-                              isSelected
-                                ? "border-green-400"
-                                : "border-transparent hover:border-purple-200"
-                            }`}
-                          >
+                              isSelected ? "border-green-400" : "border-transparent hover:border-purple-200"
+                            }`}>
                             {recipe.image_url && (
-                              <img
-                                src={recipe.image_url}
-                                alt={recipe.title}
-                                className="w-full h-28 object-cover rounded-xl mb-3"
-                              />
+                              <img src={recipe.image_url} alt={recipe.title}
+                                className="w-full h-28 object-cover rounded-xl mb-3" />
                             )}
                             <p className="font-semibold text-gray-800 text-sm mb-2 leading-tight">{recipe.title}</p>
                             <div className="flex flex-wrap gap-2 text-xs text-gray-400">
@@ -674,9 +624,7 @@ export default function MealPlanPage() {
                               {recipe.protein_g && <span>💪 {recipe.protein_g}g</span>}
                               {recipe.prep_time_mins && <span>⏱ {recipe.prep_time_mins}m</span>}
                             </div>
-                            {isSelected && (
-                              <p className="text-xs text-green-500 font-medium mt-2">✓ Selected</p>
-                            )}
+                            {isSelected && <p className="text-xs text-green-500 font-medium mt-2">✓ Selected</p>}
                           </div>
                         );
                       })}
@@ -701,81 +649,53 @@ export default function MealPlanPage() {
             <button onClick={() => setShowPrefsPanel(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-6">
-
-            {/* Meal slots */}
             <div>
               <h3 className="font-semibold text-gray-800 mb-3">🍽️ Meal Slots</h3>
               <div className="flex flex-wrap gap-2">
                 {MEAL_SLOTS_OPTIONS.map((slot) => (
-                  <button
-                    key={slot}
-                    onClick={() => toggleMealSlot(slot)}
+                  <button key={slot} onClick={() => toggleMealSlot(slot)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition capitalize ${
-                      preferences.meal_slots.includes(slot)
-                        ? "bg-purple-700 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
+                      preferences.meal_slots.includes(slot) ? "bg-purple-700 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}>
                     {getSlotEmoji(slot)} {slot}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Dietary */}
             <div>
               <h3 className="font-semibold text-gray-800 mb-3">🥗 Dietary Restrictions</h3>
               <div className="flex flex-wrap gap-2">
                 {DIETARY_OPTIONS.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => togglePref("dietary_restrictions", item)}
+                  <button key={item} onClick={() => togglePref("dietary_restrictions", item)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                      preferences.dietary_restrictions.includes(item)
-                        ? "bg-purple-700 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
+                      preferences.dietary_restrictions.includes(item) ? "bg-purple-700 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}>
                     {item}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Goals */}
             <div>
               <h3 className="font-semibold text-gray-800 mb-3">🎯 Health Goals</h3>
               <div className="flex flex-wrap gap-2">
                 {HEALTH_GOALS_OPTIONS.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => togglePref("health_goals", item)}
+                  <button key={item} onClick={() => togglePref("health_goals", item)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                      preferences.health_goals.includes(item)
-                        ? "bg-green-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
+                      preferences.health_goals.includes(item) ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}>
                     {item}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Dislikes */}
             <div>
               <h3 className="font-semibold text-gray-800 mb-3">🚫 Ingredient Dislikes</h3>
               <div className="flex flex-wrap gap-2">
                 {DISLIKES_OPTIONS.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => togglePref("ingredient_dislikes", item)}
+                  <button key={item} onClick={() => togglePref("ingredient_dislikes", item)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                      preferences.ingredient_dislikes.includes(item)
-                        ? "bg-red-500 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
+                      preferences.ingredient_dislikes.includes(item) ? "bg-red-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}>
                     {item}
                   </button>
                 ))}
@@ -783,18 +703,14 @@ export default function MealPlanPage() {
             </div>
           </div>
           <div className="px-6 py-4 border-t border-gray-100">
-            <button
-              onClick={savePreferences}
-              disabled={saving || generating}
-              className="w-full bg-purple-700 text-white py-3 rounded-xl font-semibold hover:bg-purple-800 transition disabled:opacity-50"
-            >
+            <button onClick={savePreferences} disabled={saving || generating}
+              className="w-full bg-purple-700 text-white py-3 rounded-xl font-semibold hover:bg-purple-800 transition disabled:opacity-50">
               {saving ? "Saving..." : generating ? "Generating..." : "Save & Regenerate Plan"}
             </button>
           </div>
         </div>
       </>
 
-      {/* Recipe slide panel */}
       <RecipePanel
         recipe={activeRecipe}
         onClose={() => setActiveRecipe(null)}

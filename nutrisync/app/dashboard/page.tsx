@@ -14,9 +14,21 @@ const getCards = (isLoggedIn: boolean, guestMealCount: number, guestChatCount: n
     color: "bg-purple-50 border-purple-200 hover:border-purple-400",
     iconBg: "bg-purple-100",
     locked: false,
-    guestLimit: undefined,  // 👈 remove limit
-    guestUsed: undefined,   // 👈 remove usage
-    showLimit: false,       // 👈 never show counter
+    guestLimit: undefined,  
+    guestUsed: undefined,   
+    showLimit: false,       
+  },
+  {
+    title: "Chat with Agent",
+    description: "Ask your AI nutrition assistant anything.",
+    icon: "🤖",
+    href: "/dashboard/chat",
+    color: "bg-blue-50 border-blue-200 hover:border-blue-400",
+    iconBg: "bg-blue-100",
+    locked: false,
+    guestLimit: 3,
+    guestUsed: guestChatCount,
+    showLimit: !isLoggedIn,
   },
   {
     title: "Pantry",
@@ -43,16 +55,14 @@ const getCards = (isLoggedIn: boolean, guestMealCount: number, guestChatCount: n
     showLimit: false,
   },
   {
-    title: "Chat with Agent",
-    description: "Ask your AI nutrition assistant anything.",
-    icon: "🤖",
-    href: "/dashboard/chat",
-    color: "bg-blue-50 border-blue-200 hover:border-blue-400",
-    iconBg: "bg-blue-100",
-    locked: false,
-    guestLimit: 3,
-    guestUsed: guestChatCount,
-    showLimit: !isLoggedIn,
+    title: "Grocery List",
+    description: "Smart shopping list generated from your meal plan.",
+    icon: "🛒",
+    href: "/dashboard/grocery",
+    color: "bg-orange-50 border-orange-200 hover:border-orange-400",
+    iconBg: "bg-orange-100",
+    locked: !isLoggedIn,
+    showLimit: false,
   },
 ];
 
@@ -118,12 +128,14 @@ export default function Dashboard() {
         </div>
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {cards.map((card) => (
+        <div className="grid grid-cols-1 sm:grid-cols-6 gap-6">
+          {cards.map((card, index) => (
             <div
               key={card.title}
               onClick={() => handleCardClick(card)}
-              className={`border-2 rounded-2xl p-6 transition-all duration-200 cursor-pointer ${card.color}`}
+              className={`border-2 rounded-2xl p-6 transition-all duration-200 cursor-pointer ${card.color}
+            ${index < 2 ? "md:col-span-3" : "md:col-span-2"}`} 
+              
             >
               <div className="flex items-start justify-between mb-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${card.iconBg}`}>
