@@ -17,7 +17,7 @@ def search_recipes(
     meal_type: Optional[str] = Query(None),
     tag: Optional[str] = Query(None),
     max_prep_time: Optional[int] = Query(None),
-    limit: int = Query(20, le=100),
+    limit: int = Query(500),
     offset: int = Query(0),
     db: Session = Depends(get_db)
 ):

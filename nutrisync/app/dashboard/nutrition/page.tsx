@@ -88,7 +88,7 @@ export default function NutritionPage() {
   const fetchLogs = async (uid: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/meal-plans/${uid}/log/history`);
+      const res = await fetch(`http://localhost:8000/api/meal-plans/${uid}/log/history?status=logged`);
       const data: LoggedMeal[] = await res.json();
       setAllLogs(data);
 
