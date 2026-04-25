@@ -1,6 +1,6 @@
 "use client";
 import MealCalendar from "./MealCalendar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import RecipePanel from "./RecipePanel";
 
@@ -105,6 +105,7 @@ export default function MealPlanPage() {
   const [showPrefsPanel, setShowPrefsPanel] = useState(false);
   const [guestTab, setGuestTab] = useState<"vegan" | "nonveg">("vegan");
   const [activeGuestRecipe, setActiveGuestRecipe] = useState<any | null>(null);
+  const recipesRef = useRef<Recipe[]>([]);
 
   const today = new Date();
 
@@ -161,7 +162,7 @@ export default function MealPlanPage() {
       const logData = await logRes.json();
       setLoggedMeals(logData || []);
 
-      if (!hasPrefs) {
+      if (prefData.dietary_restrictions === undefined) {
         setStep("preferences");
       } else {
         await fetchRecipesAndGenerate(uid, prefData);
@@ -174,11 +175,11 @@ export default function MealPlanPage() {
 
   const fetchRecipesAndGenerate = async (uid: string, prefs: any) => {
     try {
-      const recipeRes = await fetch(`http://localhost:8000/api/recipes/`);
+      const recipeRes = await fetch(`http://localhost:8000/api/recipes/?limit=500`); // ✅ limit back
       const allRecipes: Recipe[] = await recipeRes.json();
+      recipesRef.current = allRecipes;
       setRecipes(allRecipes);
-
-      // Check localStorage for today's suggestions
+  
       const cached = localStorage.getItem("meal_suggestions");
       if (cached) {
         const parsed = JSON.parse(cached);
@@ -190,7 +191,7 @@ export default function MealPlanPage() {
           return;
         }
       }
-
+  
       await generateSuggestions(uid, prefs, allRecipes);
     } catch (err) {
       setError("Failed to load recipes");
@@ -199,18 +200,24 @@ export default function MealPlanPage() {
   };
 
   const generateSuggestions = async (uid: string, prefs: any, allRecipes: Recipe[]) => {
+    recipesRef.current = allRecipes;
     setGenerating(true);
     try {
       const pantryRes = await fetch(`http://localhost:8000/api/pantry/${uid}`);
       const pantry = await pantryRes.json();
       const pantryItems = pantry.map((p: any) => p.ingredient_name).join(", ");
 
-      const res = await fetch("/api/generate-meal-plan", {
+      const lockedBySlot: Record<string, string[]> = {};
+      for (const [slot, recipeId] of Object.entries(selectedMeals)) {
+        if (recipeId) lockedBySlot[slot] = [recipeId];
+      }
+    
+      const res = await fetch("http://localhost:8000/api/meal-plans/generate-meal-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           preferences: prefs,
-          pantryItems,
+          pantry_items: pantryItems,
           recipes: allRecipes.map((r) => ({
             id: r.id,
             title: r.title,
@@ -218,7 +225,9 @@ export default function MealPlanPage() {
             calories: r.calories,
             tags: r.tags,
           })),
-          mealSlots: prefs.meal_slots || ["breakfast", "lunch", "dinner"],
+          meal_slots: prefs.meal_slots || ["breakfast", "lunch", "dinner"],
+          user_id: uid,
+          locked_recipe_ids: lockedBySlot,
         }),
       });
 
@@ -367,7 +376,7 @@ export default function MealPlanPage() {
     setActiveRecipe(null);
   };
 
-  const getRecipeById = (id: string) => recipes.find((r) => r.id === id) || null;
+  const getRecipeById = (id: string) => recipesRef.current.find((r) => r.id === id) || null;
 
   const getSlotEmoji = (slot: string) => {
     if (slot === "breakfast") return "🌅";
@@ -578,7 +587,20 @@ export default function MealPlanPage() {
 
         {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-6">{error}</div>}
 
-        <MealCalendar loggedMeals={loggedMeals} />
+        {userId && (
+          <MealCalendar
+            loggedMeals={loggedMeals}
+            userId={userId}
+            suggestions={suggestions}   // already in state from generateSuggestions()
+            recipes={recipes}           // already in state from fetchRecipesAndGenerate()
+            onMealsUpdated={async () => {
+              const logRes = await fetch(
+                `http://localhost:8000/api/meal-plans/${userId}/log/history`
+              );
+              setLoggedMeals((await logRes.json()) || []);
+            }}
+          />
+        )}
 
         {generating ? (
           <div className="flex flex-col items-center py-20 gap-4">

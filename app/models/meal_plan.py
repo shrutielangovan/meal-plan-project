@@ -48,6 +48,7 @@ class LoggedMeal(Base):
     carbs_g = Column(Float, nullable=True)
     fat_g = Column(Float, nullable=True)
     source = Column(String(50), default="estimated")
+    status = Column(String(20), default="logged")
 
     user = relationship("User", back_populates="logged_meals")
     session = relationship("ChatSession", back_populates="logged_meals")
