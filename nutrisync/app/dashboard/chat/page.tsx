@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
+import { useSearchParams } from "next/navigation";
 
 type Message = {
   role: "user" | "assistant";
@@ -29,10 +30,12 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const GUEST_LIMIT = 3;
-
   const [messages, setMessages] = useState<Message[]>([]); // Start empty
+  const searchParams = useSearchParams();
 
   useEffect(() => {
+    const prompt = searchParams.get("prompt");
+    if (prompt) setInput(prompt);
     const id = localStorage.getItem("user_id");
     const count = parseInt(localStorage.getItem("guest_chat_count") || "0");
     const name = localStorage.getItem("user_name");
