@@ -25,13 +25,13 @@ async function searchRecipes(ingredients: string) {
         carbs: r.carbs_g,
         fat: r.fat_g,
         prepTime: r.prep_time_mins,
+        tags: r.tags,
       }));
     }
   } catch (err) {
     console.log("DB fetch failed, falling back to Spoonacular");
   }
 
-  // Fallback to Spoonacular
   console.log("Fetching from Spoonacular 🌐");
   const res = await fetch(
     `https://api.spoonacular.com/recipes/findByIngredients?ingredients=${encodeURIComponent(ingredients)}&number=3&apiKey=${SPOONACULAR_API_KEY}`
@@ -62,8 +62,10 @@ async function searchNutrition(food: string) {
 // Detect intent from user message
 function detectIntent(message: string) {
   const lower = message.toLowerCase();
-  if (["recipe", "cook", "make", "ingredients", "meal", "dish", "food with", "using"].some((k) => lower.includes(k))) return "recipe";
-  if (["nutrition", "calories", "macros", "protein", "carbs", "fat", "nutrients"].some((k) => lower.includes(k))) return "nutrition";
+  if (["recipe", "cook", "make", "ingredients", "meal", "dish", "food with", "using", "what should i eat", "suggest"].some((k) => lower.includes(k))) return "recipe";
+  if (["nutrition", "calories", "macros", "protein", "carbs", "fat", "nutrients", "how much"].some((k) => lower.includes(k))) return "nutrition";
+  if (["pantry", "have at home", "what do i have", "ingredients i have"].some((k) => lower.includes(k))) return "pantry";
+  if (["grocery", "shopping", "buy", "purchase"].some((k) => lower.includes(k))) return "grocery";
   return "general";
 }
 
@@ -93,14 +95,14 @@ export async function POST(req: NextRequest) {
     const lastMessage = messages[messages.length - 1].content;
     const intent = detectIntent(lastMessage);
 
-    // Fetch context data based on intent
+    // Fetch recipe/nutrition context based on intent
     let contextData = "";
     if (intent === "recipe") {
       const recipes = await searchRecipes(lastMessage);
       if (recipes.length > 0) {
         contextData = `Real recipes from our database:\n${recipes
           .map((r: any) =>
-            `- ${r.title} (uses: ${r.usedIngredients}${r.missedIngredients ? `, missing: ${r.missedIngredients}` : ""}${r.calories ? `, ~${r.calories} cal` : ""}${r.prepTime ? `, ${r.prepTime} mins` : ""})`
+            `- ${r.title} (uses: ${r.usedIngredients}${r.missedIngredients ? `, missing: ${r.missedIngredients}` : ""}${r.calories ? `, ~${r.calories} cal` : ""}${r.prepTime ? `, ${r.prepTime} mins` : ""}${r.tags?.length ? `, tags: ${r.tags.join(", ")}` : ""})`
           )
           .join("\n")}`;
       }
@@ -113,13 +115,105 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create session if logged in and no session exists yet
+    // Fetch ALL user context if logged in
+    let userContext = "";
+    if (userId) {
+      try {
+        // Fetch everything in parallel
+        const [
+          userRes,
+          prefRes,
+          pantryRes,
+          logRes,
+          planRes,
+        ] = await Promise.all([
+          fetch(`${BACKEND_URL}/api/users/${userId}`),
+          fetch(`${BACKEND_URL}/api/users/${userId}/preferences`),
+          fetch(`${BACKEND_URL}/api/pantry/${userId}`),
+          fetch(`${BACKEND_URL}/api/meal-plans/${userId}/log/history`),
+          fetch(`${BACKEND_URL}/api/meal-plans/${userId}`),
+        ]);
+
+        const [user, prefs, pantry, logs, plans] = await Promise.all([
+          userRes.json(),
+          prefRes.json(),
+          pantryRes.json(),
+          logRes.json(),
+          planRes.json(),
+        ]);
+
+        // Today's nutrition totals
+        const today = new Date().toDateString();
+        const todayLogs = Array.isArray(logs)
+          ? logs.filter((m: any) => new Date(m.logged_at).toDateString() === today)
+          : [];
+
+        const totals = {
+          calories: todayLogs.reduce((s: number, m: any) => s + (m.calories || 0), 0),
+          protein: todayLogs.reduce((s: number, m: any) => s + (m.protein_g || 0), 0),
+          carbs: todayLogs.reduce((s: number, m: any) => s + (m.carbs_g || 0), 0),
+          fat: todayLogs.reduce((s: number, m: any) => s + (m.fat_g || 0), 0),
+        };
+
+        // Pantry items
+        const pantryList = Array.isArray(pantry)
+          ? pantry.map((p: any) => `${p.ingredient_name}${p.quantity ? ` (${p.quantity} ${p.unit || ""})` : ""}`).join(", ")
+          : "empty";
+
+        // Expiring soon
+        const expiringSoon = Array.isArray(pantry)
+          ? pantry.filter((p: any) => {
+              if (!p.expires_at) return false;
+              const diff = new Date(p.expires_at).getTime() - Date.now();
+              return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000;
+            }).map((p: any) => p.ingredient_name)
+          : [];
+
+        // Active meal plan slots
+        const activePlan = Array.isArray(plans) && plans.length > 0 ? plans[0] : null;
+        const plannedMeals = activePlan?.slots
+          ?.filter((s: any) => s.recipe_id)
+          .map((s: any) => `${s.meal_slot} (day ${s.day_of_week})`)
+          .join(", ") || "no active plan";
+
+        userContext = `
+        USER PROFILE:
+        - Name: ${user.name || "User"}
+        - Household size: ${user.household_size || 1} people
+        - Weekly budget: $${user.budget_weekly || "flexible"}
+        - Max cooking time: ${user.cooking_time_mins || "flexible"} mins
+
+        DIETARY PREFERENCES:
+        - Restrictions: ${prefs.dietary_restrictions?.join(", ") || "none"}
+        - Health goals: ${prefs.health_goals?.join(", ") || "none"}
+        - Dislikes: ${prefs.ingredient_dislikes?.join(", ") || "none"}
+
+        PANTRY (what they have at home):
+        ${pantryList || "empty pantry"}
+        ${expiringSoon.length > 0 ? `⚠️ Expiring soon: ${expiringSoon.join(", ")}` : ""}
+
+        TODAY'S NUTRITION (${today}):
+        - Calories: ${Math.round(totals.calories)}/2000 kcal (${Math.round(2000 - totals.calories)} kcal remaining)
+        - Protein: ${Math.round(totals.protein)}/150g (${Math.round(150 - totals.protein)}g remaining)
+        - Carbs: ${Math.round(totals.carbs)}/250g
+        - Fat: ${Math.round(totals.fat)}/65g
+        - Meals logged: ${todayLogs.map((m: any) => m.description).join(", ") || "none yet"}
+
+        MEAL PLAN:
+        - Planned slots: ${plannedMeals}`;
+
+      } catch (e) {
+        console.log("Could not fetch user context:", e);
+      }
+    }
+
+    // Create session if needed
     let sessionId = existingSessionId;
     if (userId && !sessionId) {
       sessionId = await createSession(userId, "NutriSync Chat");
     }
 
-    // Save user message to backend
+    // Save user message
     if (userId && sessionId) {
       await saveMessage(userId, sessionId, "user", lastMessage, intent);
     }
@@ -130,25 +224,38 @@ export async function POST(req: NextRequest) {
       parts: [{ text: m.content }],
     }));
 
-    // Call Gemini
+    // Call Gemini with full context
     const res = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         system_instruction: {
           parts: [{
-            text: `You are NutriSync's AI nutrition assistant. Help users with meal planning, recipes, nutrition tracking, grocery lists and ingredient substitutions. Keep responses concise and friendly.
-            ${contextData ? `Use this real data to answer:\n${contextData}` : ""}`
-          }]
-        },
-        contents: geminiMessages,
-      }),
-    });
+            text: `You are NutriSync's personal AI nutrition assistant. You have full access to the user's data and can give highly personalized advice.
+
+            Your capabilities:
+            - Suggest recipes based on what's in their pantry
+            - Warn about ingredients expiring soon
+            - Track daily nutrition progress and suggest meals to hit goals
+            - Recommend grocery items based on their meal plan
+            - Give advice based on their dietary restrictions and health goals
+            - Help with meal planning within their budget and cooking time
+
+            Always be personal, use their name when appropriate, and reference their actual data.
+            Keep responses concise, friendly and actionable.
+
+            ${userContext ? `\n${userContext}` : ""}
+            ${contextData ? `\nRELEVANT RECIPE/NUTRITION DATA:\n${contextData}` : ""}`
+                      }]
+                    },
+                    contents: geminiMessages,
+                  }),
+                });
 
     const data = await res.json();
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry I couldn't respond, please try again.";
 
-    // Save assistant reply to backend
+    // Save assistant reply
     if (userId && sessionId) {
       await saveMessage(userId, sessionId, "assistant", reply, intent);
     }
