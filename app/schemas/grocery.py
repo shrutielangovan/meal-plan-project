@@ -30,3 +30,9 @@ class GroceryItemUpdate(BaseModel):
     quantity: Optional[float] = None
     unit: Optional[str] = None
     category: Optional[str] = None
+    
+class GroceryItemCreate(BaseModel):
+    ingredient_name: str
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    category: Optional[str] = None
