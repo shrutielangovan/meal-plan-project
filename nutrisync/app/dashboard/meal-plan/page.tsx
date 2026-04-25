@@ -557,7 +557,7 @@ export default function MealPlanPage() {
   // ── LOGGED IN PLAN VIEW ──
   return (
     <main className="min-h-screen bg-[#F5F2EB] px-6 py-12">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-5xl mx-auto">
 
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -586,21 +586,60 @@ export default function MealPlanPage() {
         </div>
 
         {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-6">{error}</div>}
+        
+        {/* Calendar + Quick Actions side by side */}
+        <div className="flex gap-6 mb-8">
+          {/* Calendar — takes up most of the space */}
+          <div className="flex-1 min-w-0">
+            {userId && (
+              <MealCalendar
+                loggedMeals={loggedMeals}
+                userId={userId}
+                suggestions={suggestions}
+                recipes={recipes}
+                onMealsUpdated={async () => {
+                  const logRes = await fetch(
+                    `http://localhost:8000/api/meal-plans/${userId}/log/history`
+                  );
+                  setLoggedMeals((await logRes.json()) || []);
+                }}
+              />
+            )}
+          </div>
 
-        {userId && (
-          <MealCalendar
-            loggedMeals={loggedMeals}
-            userId={userId}
-            suggestions={suggestions}   // already in state from generateSuggestions()
-            recipes={recipes}           // already in state from fetchRecipesAndGenerate()
-            onMealsUpdated={async () => {
-              const logRes = await fetch(
-                `http://localhost:8000/api/meal-plans/${userId}/log/history`
-              );
-              setLoggedMeals((await logRes.json()) || []);
-            }}
-          />
-        )}
+          {/* Quick Actions — stacked vertically */}
+          <div className="flex flex-col gap-3 w-44 flex-shrink-0">
+            <a href="/dashboard/chat?prompt=I'm looking for a recipe idea. Can you suggest something delicious and healthy based on my preferences?"
+              className="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100 hover:border-purple-200 hover:shadow-md transition-all group cursor-pointer h-[139px] overflow-hidden">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center text-xs group-hover:bg-purple-200 transition">💬</div>
+                <p className="font-semibold text-gray-800 text-xs">AI Chef</p>
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed mb-1.5">Craving something specific? Ask AI for recipe ideas</p>
+              <p className="text-xs text-purple-600 font-semibold">Chat now →</p>
+            </a>
+
+            <a href="/dashboard/nutrition"
+              className="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100 hover:border-purple-200 hover:shadow-md transition-all group cursor-pointer h-[139px] overflow-hidden">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center text-xs group-hover:bg-green-200 transition">📊</div>
+                <p className="font-semibold text-gray-800 text-xs">Nutrition</p>
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed mb-1.5">View daily macros and weekly trends</p>
+              <p className="text-xs text-green-600 font-semibold">View dashboard →</p>
+            </a>
+
+            <a href="/dashboard/grocery"
+              className="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100 hover:border-purple-200 hover:shadow-md transition-all group cursor-pointer h-[139px] overflow-hidden">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-6 h-6 bg-amber-100 rounded-lg flex items-center justify-center text-xs group-hover:bg-amber-200 transition">🛒</div>
+                <p className="font-semibold text-gray-800 text-xs">Grocery List</p>
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed mb-1.5">Your grocery list can be generated here</p>
+              <p className="text-xs text-amber-600 font-semibold">View list →</p>
+            </a>
+          </div>
+        </div>
 
         {generating ? (
           <div className="flex flex-col items-center py-20 gap-4">
