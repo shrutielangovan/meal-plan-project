@@ -63,17 +63,23 @@ export default function GroceryPage() {
     setLoading(true);
     setError("");
     try {
-      // Try to load existing standalone list
       const res = await fetch(`http://localhost:8000/api/grocery/${uid}`);
       const lists: GroceryList[] = await res.json();
-
+  
       // Find most recent standalone list (no meal_plan_id)
-      const standalone = lists.find(l => !l.meal_plan_id);
-
-      if (standalone) {
+      const standalone = lists
+        .filter(l => !l.meal_plan_id)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+  
+      if (standalone && standalone.items.length > 0) {
+        // List exists with items — use it, don't regenerate
         setGroceryList(standalone);
+      } else if (standalone && standalone.items.length === 0) {
+        // Empty list exists — delete and regenerate
+        await fetch(`http://localhost:8000/api/grocery/${uid}/${standalone.id}`, { method: "DELETE" });
+        await generateList(uid);
       } else {
-        // No list exists — auto generate
+        // No list at all — generate
         await generateList(uid);
       }
     } catch (err) {
@@ -129,6 +135,7 @@ export default function GroceryPage() {
       );
       if (!res.ok) throw new Error();
       const updated: GroceryItem = await res.json();
+      console.log("Updated item:", updated);
       setGroceryList(prev => prev ? {
         ...prev,
         items: prev.items.map(i => i.id === updated.id ? updated : i),
@@ -153,6 +160,26 @@ export default function GroceryPage() {
       } : prev);
     } catch {
       setError("Failed to remove item");
+    }
+  };
+
+  const handleDoneShopping = async () => {
+    if (!userId || !groceryList) return;
+    try {
+      const checkedItems = groceryList.items.filter(i => i.is_checked);
+      await Promise.all(
+        checkedItems.map(item =>
+          fetch(`http://localhost:8000/api/grocery/${userId}/${groceryList.id}/items/${item.id}`, {
+            method: "DELETE",
+          })
+        )
+      );
+      setGroceryList(prev => prev ? {
+        ...prev,
+        items: prev.items.filter(i => !i.is_checked),
+      } : prev);
+    } catch {
+      setError("Failed to update list");
     }
   };
 
@@ -198,9 +225,12 @@ export default function GroceryPage() {
     }, {} as Record<string, GroceryItem[]>);
   };
 
-  const checkedCount = groceryList?.items.filter(i => i.is_checked).length || 0;
-  const totalCount = groceryList?.items.length || 0;
-  const grouped = groupByCategory(groceryList?.items || []);
+  const shoppingItems = (groceryList?.items || []).filter(i => !i.in_pantry);
+  const checkedCount = shoppingItems.filter(i => i.is_checked).length;
+  const totalCount = shoppingItems.length;
+  const grouped = groupByCategory(
+    (groceryList?.items || []).filter(i => !i.in_pantry)
+  );
   
   if (loading) {
     return (
@@ -266,6 +296,17 @@ export default function GroceryPage() {
           </div>
         ) : (
           <>
+            {/* ← ADD THIS RIGHT HERE */}
+            {totalCount > 0 && (
+              <div className="sticky top-4 z-10 flex justify-end mb-4">
+                <button
+                  onClick={handleDoneShopping}
+                  className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-green-700 transition flex items-center gap-2">
+                  ✓ Done Shopping ({checkedCount} item{checkedCount > 1 ? "s" : ""})
+                </button>
+              </div>
+            )}
+
             {/* Progress bar */}
             <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
               <div className="flex items-center justify-between mb-2">

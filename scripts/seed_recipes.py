@@ -10,14 +10,14 @@ from app.models.recipe import Recipe, RecipeIngredient
 from app.core.config import settings
 
 MEAL_TYPES = {
-    "dinner": 50,
-    "lunch": 25,
+    "breakfast": 25,
+    "snack": 25,
 }
 
 BASE_URL = "https://api.spoonacular.com"
 
 
-def fetch_recipes_by_meal_type(meal_type: str, number: int, offset:int = 150) -> list:
+def fetch_recipes_by_meal_type(meal_type: str, number: int, offset:int = 200) -> list:
     params = {
         "apiKey": settings.SPOONACULAR_API_KEY,
         "type": meal_type,
