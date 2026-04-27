@@ -166,6 +166,8 @@ async def generate_from_planned(
         name = ai_item.get("ingredient_name", "").lower().strip()
         if not name or name in added_names:
             continue
+        if name in pantry_map:
+            continue
         added_names.add(name)
 
         item = GroceryItem(

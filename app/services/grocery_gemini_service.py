@@ -15,8 +15,6 @@ async def _call_gemini(prompt: str) -> str:
             GEMINI_URL,
             json={"contents": [{"parts": [{"text": prompt}]}]},
         )
-        print("🔴 Gemini status:", res.status_code)  # add this
-        print("🔴 Gemini response:", res.text[:500])  # add this
         res.raise_for_status()
         data = res.json()
 
