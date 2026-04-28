@@ -51,6 +51,9 @@ export default function GroceryPage() {
 
   // Checking off items
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState<string>("");
+  const [editUnit, setEditUnit] = useState<string>("");
 
   useEffect(() => {
     const id = localStorage.getItem("user_id");
@@ -160,6 +163,33 @@ export default function GroceryPage() {
       } : prev);
     } catch {
       setError("Failed to remove item");
+    }
+  };
+
+  const handleSaveEdit = async (item: GroceryItem) => {
+    if (!userId || !groceryList) return;
+    try {
+      const res = await fetch(
+        `http://localhost:8000/api/grocery/${userId}/${groceryList.id}/items/${item.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quantity: editQty ? parseFloat(editQty) : null,
+            unit: editUnit || null,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error();
+      const updated: GroceryItem = await res.json();
+      setGroceryList(prev => prev ? {
+        ...prev,
+        items: prev.items.map(i => i.id === updated.id ? updated : i),
+      } : prev);
+    } catch {
+      setError("Failed to update quantity");
+    } finally {
+      setEditingId(null);
     }
   };
 
@@ -361,8 +391,37 @@ export default function GroceryPage() {
                         </p>
 
                         {/* Quantity */}
-                        {item.quantity && (
-                          <span className="text-xs text-gray-400 flex-shrink-0">
+                        {editingId === item.id ? (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <input
+                              type="number"
+                              value={editQty}
+                              onChange={(e) => setEditQty(e.target.value)}
+                              className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-300"
+                              autoFocus
+                            />
+                            <input
+                              type="text"
+                              value={editUnit}
+                              onChange={(e) => setEditUnit(e.target.value)}
+                              className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-300"
+                            />
+                            <button
+                              onClick={() => handleSaveEdit(item)}
+                              className="text-green-500 hover:text-green-700 text-xs font-semibold">
+                              ✓
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="text-gray-400 hover:text-gray-600 text-xs">
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            onClick={() => { setEditingId(item.id); setEditQty(String(item.quantity || "")); setEditUnit(item.unit || ""); }}
+                            className="text-xs text-gray-400 flex-shrink-0 cursor-pointer hover:text-green-500 hover:underline transition"
+                            title="Click to edit">
                             {item.quantity} {item.unit || ""}
                           </span>
                         )}

@@ -11,6 +11,7 @@ type LoggedMeal = {
     carbs_g?: number | null;
     fat_g?: number | null;
     status?: "logged" | "planned";
+    source?: string; 
 };
 
 type MacroEstimate = {
@@ -72,6 +73,7 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
     const [selectedSuggestion, setSelectedSuggestion] = useState<Recipe | null>(null);
 
     const [saving, setSaving] = useState(false);
+    const [isMealPrepped, setIsMealPrepped] = useState(false);
     const [error, setError] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -158,6 +160,7 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
         protein_g: protein ? parseFloat(protein) : null,
         carbs_g: carbs ? parseFloat(carbs) : null,
         fat_g: fat ? parseFloat(fat) : null,
+        source: isMealPrepped ? "meal_plan" : "manual",
         }]);
         onClose();
     } catch { setError("Failed to save meal. Please try again."); }
@@ -172,6 +175,7 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
         description: m.description, meal_slot: reuseSlot,
         calories: m.calories, protein_g: m.protein_g ?? null,
         carbs_g: m.carbs_g ?? null, fat_g: m.fat_g ?? null,
+        source: isMealPrepped ? "manual" : "meal_plan",
         })));
         onClose();
     } catch { setError("Failed to save meals. Please try again."); }
@@ -189,6 +193,7 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
         protein_g: selectedSuggestion.protein_g,
         carbs_g: selectedSuggestion.carbs_g,
         fat_g: selectedSuggestion.fat_g,
+        source: "meal_plan",
         }]);
         onClose();
     } catch { setError("Failed to save meal. Please try again."); }
@@ -199,6 +204,7 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
     setMode("choose"); setError(""); setSelectedReuse([]);
     setSearch(""); setSlotFilter("all"); setShowAll(false);
     setEstimate(null); setEstimateError(""); setSelectedSuggestion(null);
+    setIsMealPrepped(false);
     };
 
     const hasSuggestions = Object.values(suggestions).some(ids => ids.length > 0);
@@ -285,10 +291,10 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
                 <div className="grid grid-cols-4 gap-2">
                     {MEAL_SLOTS.map((s) => (
                     <button key={s} onClick={() => { setSuggestionSlot(s); setSelectedSuggestion(null); }}
-                        className={`flex flex-col items-center py-2.5 px-1 rounded-xl text-xs font-medium transition capitalize border-2 ${
+                        className={`py-2 px-1 rounded-xl text-xs font-medium transition capitalize border-2 ${
                         suggestionSlot === s ? "bg-indigo-600 text-white border-indigo-600" : "bg-gray-50 text-gray-600 border-transparent hover:border-gray-200"
                         }`}>
-                        <span className="text-base mb-0.5">{SLOT_EMOJI[s]}</span>{s}
+                        {s}
                     </button>
                     ))}
                 </div>
@@ -311,7 +317,6 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
                         }`}>
                             {isSelected && <span className="text-white text-xs font-bold">✓</span>}
                         </div>
-                        <span className="text-lg flex-shrink-0">{SLOT_EMOJI[suggestionSlot] || "🍽️"}</span>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{recipe.title}</p>
                             <div className="flex gap-2 text-xs text-gray-400 mt-0.5">
@@ -336,10 +341,10 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
                 <div className="grid grid-cols-4 gap-2">
                     {MEAL_SLOTS.map((s) => (
                     <button key={s} onClick={() => setSlot(s)}
-                        className={`flex flex-col items-center py-2.5 px-1 rounded-xl text-xs font-medium transition capitalize border-2 ${
+                        className={`py-2 px-1 rounded-xl text-xs font-medium transition capitalize border-2 ${
                         slot === s ? "bg-purple-700 text-white border-purple-700" : "bg-gray-50 text-gray-600 border-transparent hover:border-gray-200"
                         }`}>
-                        <span className="text-base mb-0.5">{SLOT_EMOJI[s]}</span>{s}
+                        {s}
                     </button>
                     ))}
                 </div>
@@ -363,6 +368,27 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
                 {estimate && !estimating && <p className="text-xs text-purple-600 mt-1.5">✨ AI estimated — you can adjust below</p>}
                 {estimateError && <p className="text-xs text-amber-500 mt-1.5">{estimateError}</p>}
                 </div>
+
+                {/* ✅ Home cooked toggle */}
+                <div className="flex flex-col gap-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Where is this meal from?</p>
+                    <div className="grid grid-cols-2 gap-2">
+                    <button
+                    onClick={() => setIsMealPrepped(true)}
+                    className={`flex items-center gap-2 p-2 rounded-xl border-2 text-xs font-medium transition ${
+                        isMealPrepped === true ? "bg-green-50 border-green-400 text-green-700" : "bg-gray-50 border-transparent text-gray-500 hover:border-gray-200"
+                    }`}>
+                    <span>Home cooked</span>
+                    </button>
+                    <button
+                    onClick={() => setIsMealPrepped(false)}
+                    className={`flex items-center gap-2 p-2 rounded-xl border-2 text-xs font-medium transition ${
+                        isMealPrepped === false ? "bg-purple-50 border-purple-400 text-purple-700" : "bg-gray-50 border-transparent text-gray-500 hover:border-gray-200"
+                    }`}>
+                    <span>Restaurant / Other</span>
+                    </button>
+                    </div>
+                    </div>
 
                 <div>
                 <div className="flex items-center justify-between mb-2">
@@ -402,15 +428,35 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
             {/* ── REUSE ── */}
             {mode === "reuse" && (
             <div className="flex flex-col gap-4">
-                <div>
+                {/* ✅ Home cooked toggle */}
+                <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Was this meal prepped at home?</p>
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                    onClick={() => setIsMealPrepped(true)}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border-2 text-xs font-medium transition ${
+                        isMealPrepped ? "bg-green-50 border-green-400 text-green-700" : "bg-gray-50 border-transparent text-gray-500 hover:border-gray-200"
+                    }`}>
+                    <span>Yes, meal prepped</span>
+                    </button>
+                    <button
+                    onClick={() => setIsMealPrepped(false)}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border-2 text-xs font-medium transition ${
+                        !isMealPrepped ? "bg-purple-50 border-purple-400 text-purple-700" : "bg-gray-50 border-transparent text-gray-500 hover:border-gray-200"
+                    }`}>
+                    <span>No, made fresh</span>
+                    </button>
+                </div>
+
+
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">Log selected meals as</label>
                 <div className="grid grid-cols-4 gap-2">
                     {MEAL_SLOTS.map((s) => (
                     <button key={s} onClick={() => setReuseSlot(s)}
-                        className={`flex flex-col items-center py-2.5 px-1 rounded-xl text-xs font-medium transition capitalize border-2 ${
+                        className={`py-2 px-1 rounded-xl text-xs font-medium transition capitalize border-2 ${
                         reuseSlot === s ? "bg-green-600 text-white border-green-600" : "bg-gray-50 text-gray-600 border-transparent hover:border-gray-200"
                         }`}>
-                        <span className="text-base mb-0.5">{SLOT_EMOJI[s]}</span>{s}
+                        {s}
                     </button>
                     ))}
                 </div>
@@ -424,7 +470,7 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
                         className={`px-3 py-1 rounded-full text-xs font-medium transition capitalize ${
                         slotFilter === s ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                         }`}>
-                        {s === "all" ? "All" : `${SLOT_EMOJI[s]} ${s}`}
+                        {s === "all" ? "All" : s}
                     </button>
                     ))}
                 </div>
@@ -465,7 +511,6 @@ export default function AddMealModal({ date, loggedMeals, suggestions, recipes, 
                             }`}>
                             {isSelected && <span className="text-white text-xs font-bold">✓</span>}
                             </div>
-                            <span className="text-lg flex-shrink-0">{SLOT_EMOJI[meal.meal_slot || ""] || "🍽️"}</span>
                             <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{meal.description}</p>
                             <div className="flex gap-2 text-xs text-gray-400 mt-0.5">

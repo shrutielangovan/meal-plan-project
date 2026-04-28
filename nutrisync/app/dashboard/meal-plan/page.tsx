@@ -502,7 +502,7 @@ export default function MealPlanPage() {
           {["breakfast", "lunch", "dinner"].map((slot) => (
             <div key={slot} className="mb-8">
               <h2 className="text-lg font-semibold text-gray-700 mb-3 capitalize flex items-center gap-2">
-                {getSlotEmoji(slot)} {slot}
+                {slot}
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {(plan as any)[slot].map((recipe: any) => (
@@ -653,7 +653,7 @@ export default function MealPlanPage() {
               return (
                 <div key={slot}>
                   <h2 className="text-lg font-semibold text-gray-700 mb-3 capitalize flex items-center gap-2">
-                    {getSlotEmoji(slot)} {slot}
+                    {slot}
                     {selectedMeals[slot] && (
                       <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">
                         ✓ Logged

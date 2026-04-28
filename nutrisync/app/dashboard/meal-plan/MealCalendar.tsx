@@ -275,13 +275,12 @@ export default function MealCalendar({ loggedMeals, userId, suggestions, recipes
             {!selectedDateIsFuture && loggedOnly.length > 0 && (
               <div className="grid grid-cols-4 gap-2 mb-4">
                 {[
-                  { label: "Calories", value: Math.round(totalCals), icon: "🔥" },
-                  { label: "Protein", value: `${Math.round(totalProtein)}g`, icon: "💪" },
-                  { label: "Carbs", value: `${Math.round(totalCarbs)}g`, icon: "🌾" },
-                  { label: "Fat", value: `${Math.round(totalFat)}g`, icon: "🥑" },
+                  { label: "Calories", value: Math.round(totalCals)},
+                  { label: "Protein", value: `${Math.round(totalProtein)}g`},
+                  { label: "Carbs", value: `${Math.round(totalCarbs)}g`},
+                  { label: "Fat", value: `${Math.round(totalFat)}g`},
                 ].map((stat) => (
                   <div key={stat.label} className="bg-gray-50 rounded-xl p-2 text-center">
-                    <p className="text-base mb-0.5">{stat.icon}</p>
                     <p className="text-xs font-semibold text-gray-800">{stat.value}</p>
                     <p className="text-xs text-gray-400">{stat.label}</p>
                   </div>
@@ -317,7 +316,6 @@ export default function MealCalendar({ loggedMeals, userId, suggestions, recipes
                     : meal.status === "planned" ? "bg-blue-50 border border-blue-100"
                     : "bg-gray-50"
                   }`}>
-                    <span className="text-lg flex-shrink-0">{SLOT_EMOJI[meal.meal_slot || ""] || "🍽️"}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
                         <p className="text-sm font-medium text-gray-800 truncate">{meal.description}</p>
@@ -343,7 +341,7 @@ export default function MealCalendar({ loggedMeals, userId, suggestions, recipes
                     ) : (
                       <button onClick={() => setConfirmDeleteId(meal.id)}
                         className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition"
-                        title="Remove meal">🗑</button>
+                        title="Remove meal">✕</button>
                     )}
                   </div>
                   {confirmDeleteId === meal.id && (

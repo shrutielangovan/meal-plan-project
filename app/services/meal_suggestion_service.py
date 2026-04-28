@@ -236,7 +236,10 @@ def get_rule_based_suggestions(
 
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        picked = [rid for _, rid in scored[:needed]]
+        # Take top N candidates (3x the needed amount) and shuffle for variety
+        top_candidates = scored[:needed * 3]
+        random.shuffle(top_candidates)
+        picked = [rid for _, rid in top_candidates[:needed]]
         for rid in picked:
             used_ids.add(rid)
 

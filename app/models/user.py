@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, TIMESTAMP, ARRAY, Text, ForeignKey, Boolean
+from sqlalchemy import Column, String, Integer, TIMESTAMP, ARRAY, Text, ForeignKey, Boolean, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -45,7 +45,7 @@ class PantryItem(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     ingredient_name = Column(String(255), nullable=False)
-    quantity = Column(Integer, nullable=True)
+    quantity = Column(Float, nullable=True)
     unit = Column(String(50), nullable=True)
     expires_at = Column(TIMESTAMP, nullable=True)
     added_at = Column(TIMESTAMP, server_default=func.now())

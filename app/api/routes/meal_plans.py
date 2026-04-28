@@ -253,12 +253,27 @@ def plan_future_meal(
 
 @router.post("/{user_id}/log", response_model=LoggedMealResponse)
 def log_meal(user_id: UUID, meal_in: LoggedMealCreate, db: Session = Depends(get_db)):
-    if meal_in.session_id:
-        session = db.query(ChatSession).filter_by(id=meal_in.session_id).first()
-        if not session:
-            raise HTTPException(status_code=404, detail="Chat session not found")
     meal = LoggedMeal(user_id=user_id, **meal_in.model_dump())
     db.add(meal)
+    db.flush()
+
+    # ✅ Only deduct pantry for meal plan recipes, not manual/restaurant logs
+    if meal_in.source == "meal_plan":
+        matching_recipe = (
+            db.query(Recipe)
+            .filter(Recipe.title.ilike(meal_in.description))
+            .first()
+        )
+        if matching_recipe and hasattr(matching_recipe, "ingredients"):
+            pantry_items = db.query(PantryItem).filter_by(user_id=user_id).all()
+            pantry_map = {p.ingredient_name.lower(): p for p in pantry_items}
+            for ingredient in matching_recipe.ingredients:
+                pantry_item = pantry_map.get(ingredient.ingredient_name.lower())
+                if pantry_item and ingredient.quantity is not None:
+                    pantry_item.quantity = max(
+                        0, (pantry_item.quantity or 0) - ingredient.quantity
+                    )
+
     db.commit()
     db.refresh(meal)
     return meal

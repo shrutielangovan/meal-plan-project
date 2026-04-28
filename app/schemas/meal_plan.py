@@ -84,7 +84,7 @@ class LoggedMealCreate(BaseModel):
     protein_g: Optional[float] = None
     carbs_g: Optional[float] = None
     fat_g: Optional[float] = None
-    source: str = "estimated"
+    source: str = "manual"
     session_id: Optional[UUID] = None
 
 class LoggedMealResponse(BaseModel):
