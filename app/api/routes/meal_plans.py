@@ -131,7 +131,7 @@ async def estimate_macros_endpoint(
 # ── /{user_id}/log/* routes (must come before /{user_id}/{plan_id}) ───────────
 
 @router.post("/{user_id}/log/plan")
-def plan_future_meal(
+async def plan_future_meal(
     user_id: UUID,
     payload: PlanMealCreate,
     db: Session = Depends(get_db),
@@ -231,9 +231,15 @@ def plan_future_meal(
 
         grocery_list_id = str(grocery_list.id)
 
+    if not matching_recipe:
+        from app.services.meal_image_service import get_or_generate_meal_image
+        image_url = await get_or_generate_meal_image(meal.description, db)
+        if image_url:
+            meal.image_url = image_url
+        
     db.commit()
     db.refresh(meal)
-
+    
     return {
         "meal": {
             "id": str(meal.id),
