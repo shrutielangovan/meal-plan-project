@@ -42,6 +42,7 @@ type LoggedMeal = {
   protein_g?: number | null;
   carbs_g?: number | null;
   fat_g?: number | null;
+  image_url?: string | null;
 };
 
 const GUEST_PLANS = {
@@ -601,7 +602,42 @@ export default function MealPlanPage() {
                   const logRes = await fetch(
                     `http://localhost:8000/api/meal-plans/${userId}/log/history`
                   );
-                  setLoggedMeals((await logRes.json()) || []);
+                  const updatedMeals = (await logRes.json()) || [];
+                  setLoggedMeals(updatedMeals);
+                
+                  // ✅ Sync selectedMeals with actual logged meals
+                  const todayStr = new Date().toDateString();
+                  const todayLoggedMeals = updatedMeals.filter((m: any) => {
+                    const d = new Date(m.logged_at);
+                    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toDateString() === todayStr
+                      && m.status !== "planned";
+                  });
+                
+                  // Rebuild selectedMeals from today's logged meals matched against suggestions
+                  const updatedSelections: Record<string, string> = {};
+                  for (const [slot, recipeIds] of Object.entries(suggestions)) {
+                    const loggedInSlot = todayLoggedMeals.find((m: any) =>
+                      m.meal_slot === slot &&
+                      (recipeIds as string[]).some(id => {
+                        const recipe = recipesRef.current.find(r => r.id === id);
+                        return recipe?.title.toLowerCase() === m.description.toLowerCase();
+                      })
+                    );
+                    if (loggedInSlot) {
+                      const matchedRecipeId = (recipeIds as string[]).find(id => {
+                        const recipe = recipesRef.current.find(r => r.id === id);
+                        return recipe?.title.toLowerCase() === loggedInSlot.description.toLowerCase();
+                      });
+                      if (matchedRecipeId) updatedSelections[slot] = matchedRecipeId;
+                    }
+                  }
+                
+                  setSelectedMeals(updatedSelections);
+                  localStorage.setItem("selected_meals", JSON.stringify({
+                    meals: updatedSelections,
+                    date: todayStr,
+                    userId,
+                  }));
                 }}
               />
             )}
@@ -650,11 +686,21 @@ export default function MealPlanPage() {
           <div className="flex flex-col gap-8">
             {preferences.meal_slots.map((slot) => {
               const slotRecipeIds = suggestions[slot] || [];
+              
+              // ✅ Check both selectedMeals AND loggedMeals for today
+              const todayStr = new Date().toDateString();
+              const isSlotLogged = selectedMeals[slot] || loggedMeals.some(m => {
+                const d = new Date(m.logged_at);
+                return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toDateString() === todayStr
+                  && m.meal_slot === slot
+                  && (m as any).status !== "planned";
+              });
+
               return (
                 <div key={slot}>
                   <h2 className="text-lg font-semibold text-gray-700 mb-3 capitalize flex items-center gap-2">
                     {slot}
-                    {selectedMeals[slot] && (
+                    {isSlotLogged && (
                       <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">
                         ✓ Logged
                       </span>
@@ -665,31 +711,70 @@ export default function MealPlanPage() {
                       No suggestions yet — click Refresh to generate
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {slotRecipeIds.map((recipeId) => {
-                        const recipe = getRecipeById(recipeId);
-                        if (!recipe) return null;
-                        const isSelected = selectedMeals[slot] === recipeId;
-                        return (
-                          <div key={recipeId} onClick={() => setActiveRecipe(recipe)}
-                            className={`bg-white rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition border-2 ${
-                              isSelected ? "border-green-400" : "border-transparent hover:border-purple-200"
-                            }`}>
-                            {recipe.image_url && (
-                              <img src={recipe.image_url} alt={recipe.title}
-                                className="w-full h-28 object-cover rounded-xl mb-3" />
-                            )}
-                            <p className="font-semibold text-gray-800 text-sm mb-2 leading-tight">{recipe.title}</p>
-                            <div className="flex flex-wrap gap-2 text-xs text-gray-400">
-                              {recipe.calories && <span>🔥 {recipe.calories} cal</span>}
-                              {recipe.protein_g && <span>💪 {recipe.protein_g}g</span>}
-                              {recipe.prep_time_mins && <span>⏱ {recipe.prep_time_mins}m</span>}
+                    (() => {
+                      const todayStr = new Date().toDateString();
+                      const todayLoggedForSlot = loggedMeals.find(m => {
+                        const d = new Date(m.logged_at);
+                        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toDateString() === todayStr
+                          && m.meal_slot === slot
+                          && (m as any).status !== "planned"
+                          && !slotRecipeIds.some(id => {
+                            const r = recipesRef.current.find(r => r.id === id);
+                            return r?.title.toLowerCase() === m.description.toLowerCase();
+                          });
+                      });
+                      const matchedRecipe = todayLoggedForSlot
+                        ? recipesRef.current.find(r => r.title.toLowerCase() === todayLoggedForSlot.description.toLowerCase())
+                        : null;
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          {todayLoggedForSlot && (
+                            <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-green-400">
+                              {matchedRecipe?.image_url ? (
+                                <img src={matchedRecipe.image_url} alt={matchedRecipe.title}
+                                  className="w-full h-28 object-cover rounded-xl mb-3" />
+                              ) : todayLoggedForSlot.image_url ? (
+                                <img src={todayLoggedForSlot.image_url} alt={todayLoggedForSlot.description}
+                                  className="w-full h-28 object-cover rounded-xl mb-3" />
+                              ) : (
+                                <div className="w-full h-28 bg-green-50 rounded-xl mb-3 flex items-center justify-center">
+                                  <span className="text-3xl">🍽️</span>
+                                </div>
+                              )}
+                              <p className="font-semibold text-gray-800 text-sm mb-2 leading-tight">{todayLoggedForSlot.description}</p>
+                              <div className="flex flex-wrap gap-2 text-xs text-gray-400">
+                                {todayLoggedForSlot.calories && <span>🔥 {todayLoggedForSlot.calories} cal</span>}
+                                {todayLoggedForSlot.protein_g && <span>💪 {todayLoggedForSlot.protein_g}g</span>}
+                              </div>
+                              <p className="text-xs text-green-500 font-medium mt-2">✓ Logged</p>
                             </div>
-                            {isSelected && <p className="text-xs text-green-500 font-medium mt-2">✓ Selected</p>}
-                          </div>
-                        );
-                      })}
-                    </div>
+                          )}
+                          {slotRecipeIds.slice(0, todayLoggedForSlot ? 2 : 3).map((recipeId) => {
+                            const recipe = getRecipeById(recipeId);
+                            if (!recipe) return null;
+                            const isSelected = selectedMeals[slot] === recipeId;
+                            return (
+                              <div key={recipeId} onClick={() => setActiveRecipe(recipe)}
+                                className={`bg-white rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition border-2 ${
+                                  isSelected ? "border-green-400" : "border-transparent hover:border-purple-200"
+                                }`}>
+                                {recipe.image_url && (
+                                  <img src={recipe.image_url} alt={recipe.title}
+                                    className="w-full h-28 object-cover rounded-xl mb-3" />
+                                )}
+                                <p className="font-semibold text-gray-800 text-sm mb-2 leading-tight">{recipe.title}</p>
+                                <div className="flex flex-wrap gap-2 text-xs text-gray-400">
+                                  {recipe.calories && <span>🔥 {recipe.calories} cal</span>}
+                                  {recipe.protein_g && <span>💪 {recipe.protein_g}g</span>}
+                                  {recipe.prep_time_mins && <span>⏱ {recipe.prep_time_mins}m</span>}
+                                </div>
+                                {isSelected && <p className="text-xs text-green-500 font-medium mt-2">✓ Selected</p>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               );

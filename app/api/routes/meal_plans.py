@@ -252,12 +252,12 @@ def plan_future_meal(
     }
 
 @router.post("/{user_id}/log", response_model=LoggedMealResponse)
-def log_meal(user_id: UUID, meal_in: LoggedMealCreate, db: Session = Depends(get_db)):
+async def log_meal(user_id: UUID, meal_in: LoggedMealCreate, db: Session = Depends(get_db)):
     meal = LoggedMeal(user_id=user_id, **meal_in.model_dump())
     db.add(meal)
     db.flush()
 
-    # ✅ Only deduct pantry for meal plan recipes, not manual/restaurant logs
+    # Deduct pantry for meal plan recipes
     if meal_in.source == "meal_plan":
         matching_recipe = (
             db.query(Recipe)
@@ -273,6 +273,19 @@ def log_meal(user_id: UUID, meal_in: LoggedMealCreate, db: Session = Depends(get
                     pantry_item.quantity = max(
                         0, (pantry_item.quantity or 0) - ingredient.quantity
                     )
+
+    # ✅ Generate image for manual meals not in DB
+    if meal_in.source == "manual":
+        matching_recipe = (
+            db.query(Recipe)
+            .filter(Recipe.title.ilike(meal_in.description))
+            .first()
+        )
+        if not matching_recipe:
+            from app.services.meal_image_service import get_or_generate_meal_image
+            image_url = await get_or_generate_meal_image(meal_in.description, db)
+            if image_url:
+                meal.image_url = image_url
 
     db.commit()
     db.refresh(meal)

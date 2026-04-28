@@ -99,6 +99,7 @@ class LoggedMealResponse(BaseModel):
     fat_g: Optional[float]
     source: str
     status: str = "logged" 
+    image_url: Optional[str] = None 
 
     class Config:
         from_attributes = True

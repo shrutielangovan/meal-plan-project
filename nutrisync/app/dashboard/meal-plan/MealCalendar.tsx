@@ -12,6 +12,7 @@ type LoggedMeal = {
   carbs_g?: number | null;
   fat_g?: number | null;
   status?: "logged" | "planned";
+  image_url?: string | null;
 };
 
 type GroceryPreview = {
@@ -128,6 +129,12 @@ export default function MealCalendar({ loggedMeals, userId, suggestions, recipes
           body: JSON.stringify(meal),
         });
         if (!res.ok) throw new Error("Log failed");
+        
+        // ✅ Wait for image generation to complete before refreshing
+        const data = await res.json();
+          if ((meal as any).source === "manual" && !data.image_url) {
+            await new Promise(resolve => setTimeout(resolve, 4000));
+          }
       } else {
         const res = await fetch(`http://localhost:8000/api/meal-plans/${userId}/log/backdate`, {
           method: "POST", headers: { "Content-Type": "application/json" },
