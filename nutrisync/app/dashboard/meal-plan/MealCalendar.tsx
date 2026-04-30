@@ -12,7 +12,6 @@ type LoggedMeal = {
   carbs_g?: number | null;
   fat_g?: number | null;
   status?: "logged" | "planned";
-  source?: string;
   image_url?: string | null;
 };
 

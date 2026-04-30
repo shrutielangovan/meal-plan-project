@@ -12,7 +12,6 @@ type LoggedMeal = {
     fat_g?: number | null;
     status?: "logged" | "planned";
     source?: string; 
-    image_url?: string | null;
 };
 
 type MacroEstimate = {
