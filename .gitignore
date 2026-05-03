@@ -19,3 +19,12 @@ __pycache__/
 
 # Alembic
 alembic/versions/*.pyc
+.env
+.env.local
+nutrisync/.env.local
+.env
+.env.local
+nutrisync/.env.local
+.env
+.env.local
+nutrisync/.env.local

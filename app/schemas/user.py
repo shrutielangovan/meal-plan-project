@@ -44,6 +44,7 @@ class UserResponse(BaseModel):
     cooking_time_mins: Optional[int]
     is_active: bool = True
     created_at: datetime
+    profile_picture:   Optional[str] = None 
 
     class Config:
         from_attributes = True
