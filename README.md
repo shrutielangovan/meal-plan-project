@@ -1,22 +1,10 @@
 # NutriSync — AI-Powered Meal Planner
 
----
+NutriSync is an AI-powered, agentic meal planning platform designed to personalize the daily nutrition experience for individuals and households. By combining rule-based recommendation engines with large language model (LLM) capabilities, NutriSync moves beyond static meal suggestions to deliver dynamic, context-aware dietary guidance tailored to each user's restrictions, goals, pantry inventory, and schedule.
 
-## ✨ What's New
+The platform addresses a core gap in existing nutrition apps: the inability to adapt to real-world variability such as changing pantry stocks, evolving dietary goals/restrictions, meal-prep habits, and spontaneous cravings. NutriSync handles all of these through an interconnected pipeline.
 
-The following features have been added on top of the original codebase:
-
-- **Google OAuth 2.0** — Passwordless login via Google (SaaS-style, no password required)
-- **Email + Password login** — Traditional login with bcrypt password hashing
-- **Profile completion flow** — Compulsory step for Google OAuth new users (household size, budget, cook time)
-- **My Profile page** — View and edit profile, upload avatar (persisted to DB), meal preferences
-- **Support ticket system** — Submit tickets, receive email confirmation, flag follow-ups
-- **Gmail SMTP** — Automated emails for ticket confirmation and follow-up notifications
-- **Auto table creation** — All DB tables created automatically on server startup via `Base.metadata.create_all()`
-
----
-
-## Project Structure (Updated)
+## Project Structure
 
 ```
 meal-plan-project/
@@ -81,215 +69,10 @@ nutrisync/src/
 
 ```
 
----
-
-## Auto Table Creation on Startup
-
-All database tables are created automatically when the backend server starts. No manual migration runs needed during development.
-
-```python
-# app/main.py
-Base.metadata.create_all(bind=engine)
-```
-
-This uses `CREATE TABLE IF NOT EXISTS` — existing tables and data are never touched. Safe for repeated restarts.
-
-Tables created automatically:
-`users`, `user_preferences`, `pantry_items`, `support_tickets`, `recipes`, `recipe_ingredients`, `meal_plans`, `meal_plan_slots`, `logged_meals`, `grocery_lists`, `grocery_items`, `chat_sessions`, `chat_messages`
-
-> **Note:** If you add new columns to an existing model, `create_all` will NOT add them automatically. Run the SQL ALTER commands manually — see the DB Schema Changes section below.
 
 ---
 
-## Google OAuth Setup
-
-### Step 1 — Create a Google Cloud project
-
-Go to: https://console.cloud.google.com
-
-### Step 2 — Enable Google OAuth
-
-APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
-
-- Application type: **Web application**
-- Name: NutriSync
-
-### Step 3 — Set Authorised JavaScript Origins
-
-```
-http://localhost:3000
-http://localhost:8000
-```
-
-### Step 4 — Copy credentials
-
-Copy **Client ID** and **Client Secret** from the credentials page.
-
-### Step 5 — Add test users (while in Testing mode)
-
-APIs & Services → OAuth consent screen → Test users → Add your Gmail address
-
----
-
-## Gmail SMTP Setup (Support System Emails)
-
-The support system sends automated emails via Gmail SMTP.
-
-### Step 1 — Enable 2-Factor Authentication on your Gmail
-
-Go to: https://myaccount.google.com/security
-
-### Step 2 — Generate an App Password
-
-Google Account → Security → 2-Step Verification → App passwords
-
-- Select app: **Mail**
-- Select device: **Other** → type "NutriSync"
-- Copy the 16-character password (e.g. `xxxx xxxx xxxx xxxx`)
-
-### Step 3 — Add to `.env`
-
-```
-SUPPORT_EMAIL=your@gmail.com
-GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
-```
-
----
-
-## Environment Variables (Updated)
-
-### Backend — `.env`
-
-```
-# PostgreSQL
-DATABASE_URL=postgresql+psycopg2://postgres:yourpassword@127.0.0.1:5433/meal_planner
-
-# Food & Nutrition APIs
-SPOONACULAR_API_KEY=your-key-here
-USDA_API_KEY=your-key-here
-
-# Google OAuth 2.0 (Passwordless login)
-GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-client-secret
-
-# Gmail SMTP (Support System emails)
-SUPPORT_EMAIL=your@gmail.com
-GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
-```
-
-### Frontend — `nutrisync/.env.local`
-
-```
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GEMINI_API_KEY=your-key-here
-SPOONACULAR_API_KEY=your-key-here
-USDA_API_KEY=your-key-here
-```
-
----
-
-## DB Schema Changes (Manual SQL)
-
-If you cloned the repo and the `users` table already existed before the new columns were added, run these manually:
-
-```bash
-docker exec -it meal_planner_db psql -U postgres -d meal_planner
-```
-
-```sql
-ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_google_user BOOLEAN DEFAULT FALSE NOT NULL;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT;
-```
-
-Then exit:
-
-```sql
-\q
-```
-
----
-
-## New API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/users/google-login` | Google OAuth login — verifies ID token, creates user if new |
-| POST | `/api/users/{user_id}/picture` | Upload profile picture — saved as base64 in DB |
-| POST | `/api/support/submit` | Submit support ticket + send confirmation emails |
-| POST | `/api/support/followup` | Flag follow-up on existing ticket |
-| GET | `/api/support/tickets/{user_id}` | List user's support tickets |
-
----
-
-## New Frontend Pages
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Profile | `/profile` | View and edit profile, upload avatar |
-| Support | `/support` | Submit tickets, view ticket history, flag follow-ups |
-| Complete Profile | `/complete-profile` | Compulsory for Google OAuth new users — collects meal preferences |
-
----
-
-## Install New Dependencies
-
-### Backend
-
-```bash
-pip install -r requirements.txt
-```
-
-New packages added: `google-auth`, `httpx`, `python-multipart`
-
-### Frontend
-
-```bash
-cd nutrisync
-npm install @react-oauth/google
-```
-
----
-
-## View Database Contents
-
-A dev utility is included to print all tables and their rows:
-
-```bash
-# Make sure docker DB is running first
-docker start meal_planner_db
-
-python view_db.py
-```
-
----
-
-## Running the Project
-
-### Backend
-
-```bash
-conda activate msds597
-docker start meal_planner_db
-uvicorn app.main:app --reload --port 8000
-```
-
-### Frontend
-
-```bash
-cd nutrisync
-npm run dev
-```
-
-Open: http://localhost:3000
-
----
-
----
-
-# Meal Planner — Backend Setup Guide
----
-
+# Backend Setup Guide
 ## Prerequisites
 
 Make sure you have the following installed before starting:
@@ -347,9 +130,20 @@ cp .env.example .env
 Open `.env` and update:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meal_planner
+# PostgreSQL
+DATABASE_URL=postgresql+psycopg2://postgres:yourpassword@127.0.0.1:5433/meal_planner
+
+# Food & Nutrition APIs
 SPOONACULAR_API_KEY=your-key-here
 USDA_API_KEY=your-key-here
+
+# Google OAuth 2.0 (Passwordless login)
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# Gmail SMTP (Support System emails)
+SUPPORT_EMAIL=your@gmail.com
+GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
 
 To get API keys:
@@ -381,21 +175,14 @@ docker stop meal_planner_db    # stop
 
 ---
 
-## 6. Run database migrations
+## 6.  Auto Table Creation on Startup
 
-This creates all 12 tables in the database:
+All database tables are created automatically when the backend server starts. No manual migration runs needed during development.
 
-```bash
-alembic upgrade head
+```python
+# app/main.py
+Base.metadata.create_all(bind=engine)
 ```
-
-Verify the tables were created:
-
-```bash
-docker exec -it meal_planner_db psql -U postgres -d meal_planner -c "\dt"
-```
-
-You should see 13 entries (12 tables + `alembic_version`).
 
 ---
 
@@ -421,6 +208,9 @@ python scripts/seed_recipes.py
 
 ```bash
 uvicorn app.main:app --reload
+
+# or use to access the right python venv
+python -m uvicorn app.main:app --reload
 ```
 
 The API is now running at `http://localhost:8000`
@@ -439,79 +229,7 @@ You can test every endpoint directly from the browser — no Postman needed.
 
 ---
 
-## Project Structure
-
-```
-meal-planner/
-├── app/
-│   ├── models/              # SQLAlchemy table definitions
-│   │   ├── user.py          # users, user_preferences, pantry_items
-│   │   ├── recipe.py        # recipes, recipe_ingredients
-│   │   ├── meal_plan.py     # meal_plans, meal_plan_slots, logged_meals
-│   │   ├── grocery.py       # grocery_lists, grocery_items
-│   │   └── chat.py          # chat_sessions, chat_messages
-│   ├── schemas/             # Pydantic request/response models
-│   │   ├── user.py
-│   │   ├── recipe.py
-│   │   ├── pantry.py
-│   │   ├── meal_plan.py
-│   │   ├── grocery.py
-│   │   └── chat.py
-│   ├── api/
-│   │   └── routes/          # One file per resource
-│   │       ├── users.py
-│   │       ├── recipes.py
-│   │       ├── pantry.py
-│   │       ├── meal_plans.py
-│   │       ├── grocery.py
-│   │       └── chat.py
-│   ├── core/
-│   │   └── config.py        # Environment variable config
-│   ├── database.py          # DB connection + session
-│   └── main.py              # FastAPI app entry point
-├── scripts/
-│   └── seed_recipes.py      # Spoonacular seeding script
-├── alembic/                 # Migration files
-├── .env                     # Your local secrets (never commit)
-├── .env.example             # Template for teammates
-└── requirements.txt
-```
-
----
-
-## Available Endpoints
-
-| Group | Base Path | Description |
-|-------|-----------|-------------|
-| Users | `/api/users` | Register, get, update profile, preferences, deactivate |
-| Recipes | `/api/recipes` | Search, filter by meal type and tags |
-| Pantry | `/api/pantry` | Add, update, auto-delete when quantity hits 0 |
-| Meal Plans | `/api/meal-plans` | Create plans, update slots, archive, log meals |
-| Grocery | `/api/grocery` | Generate from plan, track items, auto-sync pantry |
-| Chat | `/api/chat` | Sessions and messages for the AI agent |
-
----
-
-## Validation Rules
-
-**Password** must have:
-- Minimum 8 characters
-- At least one uppercase letter
-- At least one number
-- At least one special character (`!@#$%^&*` etc.)
-
-**`plan_type`** must be one of: `weekly` | `daily` | `on_demand`
-
-**`meal_slot`** must be one of: `breakfast` | `lunch` | `dinner` | `snack`
-
-**`day_of_week`** must be between `0` (Monday) and `6` (Sunday)
-
-
-# NutriSync — Frontend
-
-The Next.js frontend for NutriSync, an AI-powered personalized meal planner.
-
----
+# Frontend Setup Guide
 
 ## Prerequisites
 
@@ -524,23 +242,28 @@ Make sure you have the following installed:
 
 ## Getting Started
 
-### 1. Clone the repo
-```bash
-git clone https://github.com/shrutielangovan/meal-plan-project.git
-cd meal-plan-project/nutrisync 
-```
-
-### 2. Install dependencies
+### 1. Install dependencies
 ```bash
 npm install
 ```
 
-### 3. Make sure the backend is running
+### 2. Make sure the backend is running
 
 The frontend talks to the FastAPI backend at `http://localhost:8000`.
 Follow the backend README to get it running before starting the frontend.
 
 Make sure your backend has CORS enabled for `http://localhost:3000`.
+
+### 3.Set up environment variables
+
+Create .env.local under nutrisync folder to access your api keys for Agent specific task
+
+```bash
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GEMINI_API_KEY=your-key-here
+SPOONACULAR_API_KEY=your-key-here
+USDA_API_KEY=your-key-here
+```
 
 ### 4. Run the development server
 ```bash
@@ -549,94 +272,58 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 5.Set up environment variables
 
-Create .env.local under nutrisync folder to access your api keys for Agent specific task
+---
 
-```bash
-GEMINI_API_KEY=your-key-here
-SPOONACULAR_API_KEY=your-key-here
-USDA_API_KEY=your-key-here
+# Google OAuth Setup
+
+### Step 1 — Create a Google Cloud project
+
+Go to: https://console.cloud.google.com
+
+### Step 2 — Enable Google OAuth
+
+APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
+
+- Application type: **Web application**
+- Name: NutriSync
+
+### Step 3 — Set Authorised JavaScript Origins
 
 ```
-
----
-
-## Project Structure
-```
-src/
-  app/
-    page.tsx                  # Home page (session aware)
-    layout.tsx                # Root layout with Navbar
-    loading.tsx               # Global loading spinner
-    about/page.tsx            # About Us page
-    login/page.tsx            # Login form
-    profile/page.tsx          # User Profile
-    signup/page.tsx           # Signup form
-    dashboard/
-      page.tsx                # Dashboard with feature cards
-      meal-plan/page.tsx      # Meal plan (coming soon)
-      pantry/page.tsx         # Pantry manager (coming soon)
-      nutrition/page.tsx      # Nutrition tracker (coming soon)
-      chat/page.tsx           # AI chat agent (coming soon)
-  components/ui/
-    Navbar.tsx                # Session-aware navbar
+http://localhost:3000
+http://localhost:8000
 ```
 
----
+### Step 4 — Copy credentials
 
-## Tech Stack
+Copy **Client ID** and **Client Secret** from the credentials page.
 
-| Tool | Purpose |
-|------|---------|
-| Next.js 15 (App Router) | Framework |
-| React 19 | UI library |
-| Tailwind CSS | Styling |
-| shadcn/ui | Component library |
-| Recharts | Nutrition charts (coming soon) |
+### Step 5 — Add test users (while in Testing mode)
+
+APIs & Services → OAuth consent screen → Test users → Add your Gmail address
 
 ---
 
-## Key Features Built
+## Gmail SMTP Setup (Support System Emails)
 
-- Session-aware Navbar (shows login/signup or username/logout)
-- Guest vs logged-in experience on Dashboard
-- Freemium model — guests get limited access, full access on login
-- Password validation on signup (uppercase, number, special character)
-- Auto-redirect to login for protected pages
+The support system sends automated emails via Gmail SMTP.
 
----
+### Step 1 — Enable 2-Factor Authentication on your Gmail
 
-## Session Management
+Go to: https://myaccount.google.com/security
 
-User session is stored in `localStorage` after login:
+### Step 2 — Generate an App Password
+
+Google Account → Security → 2-Step Verification → App passwords
+
+- Select app: **Mail**
+- Select device: **Other** → type "NutriSync"
+- Copy the 16-character password (e.g. `xxxx xxxx xxxx xxxx`)
+
+### Step 3 — Add to `.env`
+
 ```
-user_id   → used for all API calls
-user_name → displayed in navbar and dashboard
+SUPPORT_EMAIL=your@gmail.com
+GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
-
-To log out, the session is cleared and the user is redirected to home.
-
----
-
-## Backend API
-
-All API calls point to `http://localhost:8000`. Key endpoints used:
-
-| Action | Endpoint |
-|--------|----------|
-| Register | `POST /api/users/register` |
-| Login | `POST /api/users/login` |
-| Get Preferences | `GET /api/users/{user_id}/preferences` |
-| Update Preferences | `PATCH /api/users/{user_id}/preferences` |
-
-Full backend docs available at `http://localhost:8000/docs` when the server is running.
-
----
-
-## Notes for Teammates
-
-- Always run `docker start meal_planner_db` before starting the backend
-- Backend must be running on port `8000` before starting the frontend
-- If you see a CORS error, check that the backend has `http://localhost:3000` in its allowed origins
-- If you get a `.next` cache error, run `rm -rf .next && npm install && npm run dev`
