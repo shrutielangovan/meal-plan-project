@@ -10,6 +10,8 @@ from app.models.recipe import Recipe, RecipeIngredient
 from app.core.config import settings
 
 MEAL_TYPES = {
+    "breakfast": 30,
+    "snack": 30,
     "dinner": 30,
     "lunch":30
 }
