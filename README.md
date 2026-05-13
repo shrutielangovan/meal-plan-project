@@ -137,17 +137,17 @@ Open `.env` and update:
 # PostgreSQL
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meal_planner
 
-SPOONACULAR_API_KEY=fb61a13954354c828159579bb8bfbdf0
+SPOONACULAR_API_KEY=your_api_key_here
 
-GEMINI_API_KEY=AIzaSyDjWQd9OlCCPvZzUkWAqR4ODiJW5ZHFCQY
+GEMINI_API_KEY=your_api_key_here
 
 # Google Oauth Login Approach (Modern Saas trend - Passwordless login)
-GOOGLE_CLIENT_ID=856136817804-ccppbe1ogdaimv0insa7j56g626loet7.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 
 # Gmail SMTP for Support System
-SUPPORT_EMAIL=senthilkumaranpranav@gmail.com
-GMAIL_APP_PASSWORD=idgb rxfb rlqq anga
+SUPPORT_EMAIL=
+GMAIL_APP_PASSWORD=
 ```
 
 To get API keys:
@@ -263,17 +263,17 @@ Make sure your backend has CORS enabled for `http://localhost:3000`.
 Create .env.local under nutrisync folder to access your api keys for Agent specific task
 
 ```bash
-GEMINI_API_KEY=AIzaSyDjWQd9OlCCPvZzUkWAqR4ODiJW5ZHFCQY
-SPOONACULAR_API_KEY=fb61a13954354c828159579bb8bfbdf0
+GEMINI_API_KEY=your_api_key_here
+SPOONACULAR_API_KEY=your_api_key_here
 USDA_API_KEY=
 
 # Google Oauth Login Approach (Modern Saas trend - Passwordless login)
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=856136817804-ccppbe1ogdaimv0insa7j56g626loet7.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_api_key_here
+GOOGLE_CLIENT_SECRET=GOCSPX-s-your_api_key_here
 
 # Gmail SMTP for Support System
-SUPPORT_EMAIL=senthilkumaranpranav@gmail.com
-GMAIL_APP_PASSWORD=idgb rxfb rlqq anga
+SUPPORT_EMAIL=
+GMAIL_APP_PASSWORD=
 ```
 
 ### 4. Run the development server
