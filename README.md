@@ -75,6 +75,7 @@ nutrisync/src/
 # Backend Setup Guide
 
 > During initial set-up please run the back-end code before running the script - 'scripts/seed_recipes.py' as this would create the new DB and tables
+
 > API Keys Available in the Report
 
 
