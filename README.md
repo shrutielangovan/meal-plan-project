@@ -73,6 +73,10 @@ nutrisync/src/
 ---
 
 # Backend Setup Guide
+
+> During initial set-up please run the back-end code before running the script - 'scripts/seed_recipes.py' as this would create the new DB and tables
+
+
 ## Prerequisites
 
 Make sure you have the following installed before starting:
@@ -131,19 +135,19 @@ Open `.env` and update:
 
 ```bash
 # PostgreSQL
-DATABASE_URL=postgresql+psycopg2://postgres:yourpassword@127.0.0.1:5433/meal_planner
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meal_planner
 
-# Food & Nutrition APIs
-SPOONACULAR_API_KEY=your-key-here
-USDA_API_KEY=your-key-here
+SPOONACULAR_API_KEY=fb61a13954354c828159579bb8bfbdf0
 
-# Google OAuth 2.0 (Passwordless login)
-GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-client-secret
+GEMINI_API_KEY=AIzaSyDjWQd9OlCCPvZzUkWAqR4ODiJW5ZHFCQY
 
-# Gmail SMTP (Support System emails)
-SUPPORT_EMAIL=your@gmail.com
-GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+# Google Oauth Login Approach (Modern Saas trend - Passwordless login)
+GOOGLE_CLIENT_ID=856136817804-ccppbe1ogdaimv0insa7j56g626loet7.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+
+# Gmail SMTP for Support System
+SUPPORT_EMAIL=senthilkumaranpranav@gmail.com
+GMAIL_APP_PASSWORD=idgb rxfb rlqq anga
 ```
 
 To get API keys:
@@ -259,10 +263,17 @@ Make sure your backend has CORS enabled for `http://localhost:3000`.
 Create .env.local under nutrisync folder to access your api keys for Agent specific task
 
 ```bash
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GEMINI_API_KEY=your-key-here
-SPOONACULAR_API_KEY=your-key-here
-USDA_API_KEY=your-key-here
+GEMINI_API_KEY=AIzaSyDjWQd9OlCCPvZzUkWAqR4ODiJW5ZHFCQY
+SPOONACULAR_API_KEY=fb61a13954354c828159579bb8bfbdf0
+USDA_API_KEY=
+
+# Google Oauth Login Approach (Modern Saas trend - Passwordless login)
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=856136817804-ccppbe1ogdaimv0insa7j56g626loet7.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+
+# Gmail SMTP for Support System
+SUPPORT_EMAIL=senthilkumaranpranav@gmail.com
+GMAIL_APP_PASSWORD=idgb rxfb rlqq anga
 ```
 
 ### 4. Run the development server
