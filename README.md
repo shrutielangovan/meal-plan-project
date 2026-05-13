@@ -75,6 +75,7 @@ nutrisync/src/
 # Backend Setup Guide
 
 > During initial set-up please run the back-end code before running the script - 'scripts/seed_recipes.py' as this would create the new DB and tables
+> API Keys Available in the Report
 
 
 ## Prerequisites
@@ -213,7 +214,7 @@ python scripts/seed_recipes.py
 ```bash
 uvicorn app.main:app --reload
 
-# or use to access the right python venv
+# If the above code errors please try:
 python -m uvicorn app.main:app --reload
 ```
 
@@ -248,6 +249,7 @@ Make sure you have the following installed:
 
 ### 1. Install dependencies
 ```bash
+cd nutrisync
 npm install
 ```
 
@@ -278,6 +280,7 @@ GMAIL_APP_PASSWORD=
 
 ### 4. Run the development server
 ```bash
+cd nutrisync
 npm run dev
 ```
 
